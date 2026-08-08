@@ -1,56 +1,81 @@
-# Welcome to your Expo app 👋
+# Forex AI Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A native React Native (Expo Router) client for the [forex-ai](../forex-ai) dashboard — the SMC signal engine, MetaApi connection, and trade execution all live on that backend; this app is a client of its REST API, plus push notifications and a JUDE voice assistant that the web dashboard doesn't have.
 
-## Get started
+- **Dashboard** — connection status, engine mode (Analysis/Demo/Live), the live kill switch, risk guardian banner, watchlist, a candlestick chart, active signals with Buy/Sell execute buttons, and open positions. Polls the backend's existing REST endpoints (no server-sent events — RN can't attach the Authorization header to `EventSource`, so this polls every few seconds instead, same data, near-real-time).
+- **Settings** — backend server URL + HTTP Basic Auth password (stored on-device via `expo-secure-store`), push notification preferences per category, and JUDE voice preferences.
+- **Push notifications** — registers this device with the backend (`POST /api/devices`) and receives a push (via Expo's push service, routed to FCM/APNs) for new signals, trade opened/rejected, TP/SL/position closed, risk alerts, and connection lost/restored — even when the app is fully closed. See the backend's own README (`forex-ai/README.md`, "Push notifications & JUDE voice (mobile)") for the server side of this.
+- **JUDE voice** — tap the mic to ask things like "analyze gold" or "buy EURUSD"; JUDE replies with text-to-speech (on-device, via `expo-speech`) and requires an exact spoken "CONFIRM BUY EURUSD"-style phrase before placing any real trade. Speech-to-text is done server-side (`POST /api/voice/transcribe`, OpenAI Whisper) so no speech API key ever lives on the phone.
 
-1. Install dependencies
+## Why this needs an EAS development build, not Expo Go
 
-   ```bash
-   npm install
-   ```
+Two things this app does aren't available in Expo Go: reliable background/closed-app push delivery, and the native audio recording the voice assistant uses. Both need a custom native build. The steps below get you from a fresh clone to a working dev build on your own device.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### 1. Install dependencies and the EAS CLI
 
 ```bash
-npm run reset-project
+npm install
+npm install -g eas-cli
+eas login
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Link this app to an EAS project
 
-### Other setup steps
+```bash
+eas init
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+This writes a real `projectId` into `app.json` under `expo.extra.eas.projectId` (currently blank) — push notifications won't register until this is set. Commit the change.
 
-## Learn more
+### 3. Set the bundle identifiers
 
-To learn more about developing your project with Expo, look at the following resources:
+`app.json` currently ships with placeholder identifiers (`com.forexai.mobile` for both `ios.bundleIdentifier` and `android.package`). Change these to something under your own control before building for real devices/app stores — they don't need to change for a first local dev-build test, but do need to be unique if you ever submit to the App Store / Play Store.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 4. Set up push notification credentials
 
-## Join the community
+Push delivery goes through Expo's push service (`expo-server-sdk` on the backend), which itself routes through FCM (Android) and APNs (iOS) — you don't need to touch Firebase Admin credentials directly on the backend, but EAS does need Android/iOS push credentials to actually deliver:
 
-Join our community of developers creating universal apps.
+**Android (Firebase Cloud Messaging)**:
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com) (free tier is fine).
+2. Project settings → Cloud Messaging → generate/download a **Service Account** JSON key (Firebase Console → Project settings → Service accounts → "Generate new private key").
+3. Run `eas credentials`, select Android → Push Notifications → upload that JSON key. EAS stores and uses it; it never needs to live in this repo or on the Next.js backend.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**iOS (APNs)**: run `eas credentials`, select iOS → Push Notifications, and let EAS generate/manage the APNs key for you (needs an active Apple Developer Program membership).
+
+### 5. Set up JUDE's speech-to-text
+
+Voice commands are transcribed server-side. On the **backend** (`forex-ai`, not this repo), set `OPENAI_API_KEY` in `.env.local` — see that repo's README for details. Nothing to configure here on the mobile side.
+
+### 6. Build and run the dev client
+
+```bash
+eas build --profile development --platform android   # or ios
+```
+
+Install the resulting build on your device, then:
+
+```bash
+npx expo start --dev-client
+```
+
+Open the app, go to **Settings**, enter your backend's URL and dashboard password (the same `DASHBOARD_ACCESS_PASSWORD` the web dashboard uses), and tap **Test connection**.
+
+## Everyday development
+
+```bash
+npm install
+npx expo start --dev-client   # requires the dev build from step 6 above, not Expo Go
+```
+
+Type-check and lint:
+
+```bash
+npx tsc --noEmit
+npx expo lint
+```
+
+## What's simplified vs. the web dashboard
+
+- **No SSE** — the web dashboard uses `EventSource` for live price ticks and instant signal push; this app polls the same REST endpoints every few seconds instead (see `src/lib/api/usePolling.ts`), since RN's fetch (unlike the browser, which caches Basic Auth credentials per-origin) has no way to attach a custom header to `EventSource`.
+- **No "Hey JUDE" wake word / always-listening mode** — voice is tap-to-talk only. Continuous background microphone listening isn't something iOS/Android allow for a backgrounded app, and would be a bad idea on a phone anyway (JUDE announcing trade proposals out loud while the phone is in your pocket). Proactive "a new signal just arrived" alerts are push notifications instead; TTS narration only happens while the app is open.
+- **Demo account kill switch isn't exposed in the UI yet** — only the live account's kill switch has a control, matching what the web dashboard's header currently exposes.

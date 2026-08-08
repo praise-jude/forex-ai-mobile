@@ -1,0 +1,52 @@
+import type { Pair } from "@/lib/api/types";
+import { PAIRS } from "@/lib/api/types";
+
+/** Friendlier spoken form for TTS -- mirrors forex-ai's lib/voice/grammar.ts so JUDE
+ * sounds the same on mobile as on the web dashboard. Ticker pairs are spelled out letter
+ * by letter so TTS engines don't mangle "EURUSD" as a mispronounced word. */
+export const PAIR_SPOKEN_NAMES: Record<Pair, string> = {
+  "EUR/USD": "Euro against the US Dollar, E U R U S D",
+  "GBP/USD": "British Pound against the US Dollar, G B P U S D",
+  "USD/JPY": "US Dollar against the Japanese Yen, U S D J P Y",
+  "AUD/USD": "Australian Dollar against the US Dollar, A U D U S D",
+  "USD/CAD": "US Dollar against the Canadian Dollar, U S D C A D",
+  "XAU/USD": "Gold against the US Dollar",
+  "XAG/USD": "Silver against the US Dollar",
+  USOIL: "US Crude Oil",
+  UKOIL: "UK Brent Oil",
+  "BTC/USD": "Bitcoin against the US Dollar, B T C U S D",
+};
+
+/** Ticker form used in the spoken confirmation phrase, e.g. "BTC/USD" -> "BTCUSD". */
+export function tickerWord(pair: Pair): string {
+  return pair.replace("/", "");
+}
+
+// Every recognized spoken alias for a pair, checked longest-first below so e.g. "us oil"
+// doesn't shadow a later, more specific match. Deliberately keyword-based rather than a
+// full NLP model -- a small, fixed instrument list is exactly what a lookup table suits.
+const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
+  ["XAU/USD", ["gold", "xau", "xauusd", "xau usd"]],
+  ["XAG/USD", ["silver", "xag", "xagusd", "xag usd"]],
+  ["BTC/USD", ["bitcoin", "btc", "btcusd", "btc usd"]],
+  ["USOIL", ["us oil", "crude oil", "wti", "usoil", "crude"]],
+  ["UKOIL", ["uk oil", "brent oil", "brent", "ukoil"]],
+  ["EUR/USD", ["eur usd", "eurusd", "euro dollar", "euro us dollar", "euro"]],
+  ["GBP/USD", ["gbp usd", "gbpusd", "pound dollar", "cable", "sterling"]],
+  ["USD/JPY", ["usd jpy", "usdjpy", "dollar yen", "yen"]],
+  ["AUD/USD", ["aud usd", "audusd", "aussie dollar", "aussie"]],
+  ["USD/CAD", ["usd cad", "usdcad", "dollar cad", "loonie"]],
+];
+
+/** Finds the first pair whose alias appears in the (already-lowercased) transcript. */
+export function matchPair(normalizedTranscript: string): Pair | undefined {
+  for (const [pair, aliases] of PAIR_ALIASES) {
+    if (aliases.some((alias) => normalizedTranscript.includes(alias))) return pair;
+  }
+  // Fall back to a bare ticker match (e.g. someone reads "E U R U S D" and Whisper
+  // transcribes it close to the compact ticker form).
+  for (const pair of PAIRS) {
+    if (normalizedTranscript.includes(tickerWord(pair).toLowerCase())) return pair;
+  }
+  return undefined;
+}
