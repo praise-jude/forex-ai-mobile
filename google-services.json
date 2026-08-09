@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "724300478548",
+    "project_id": "forex-ai-mobile",
+    "storage_bucket": "forex-ai-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:724300478548:android:cf5e6466b2e04c963c15c1",
+        "android_client_info": {
+          "package_name": "com.forexai.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBF0iVWJmtNPncR-H81vh_6DaF1Dsd-CYU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
