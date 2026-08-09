@@ -19,8 +19,10 @@ export async function transcribeAudio(fileUri: string, serverUrl: string, authHe
   let res: Response;
   try {
     res = await fetch(`${serverUrl}/api/voice/transcribe`, { method: "POST", body: formData, headers });
-  } catch {
-    throw new TranscribeError("Could not reach the server to transcribe your command.");
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[voice] transcribe fetch failed:", err);
+    throw new TranscribeError(`Could not reach the server to transcribe your command. (${detail})`);
   }
 
   if (!res.ok) {
