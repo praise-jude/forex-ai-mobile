@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/api/format";
 import type { Candle, Pair, Timeframe } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 5000;
 const CHART_HEIGHT = 220;
 const MAX_CANDLES = 60;
 
