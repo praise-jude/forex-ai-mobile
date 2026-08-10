@@ -2,7 +2,7 @@ import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApi } from "@/lib/api/client";
 import { predictionHeadline } from "@/lib/api/predictionLabel";
-import type { CardStatus, Pair, PositionsResponse, PredictionUpdate, Signal } from "@/lib/api/types";
+import type { CardStatus, Pair, PositionsResponse, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
 import {
   buildAnalysisAnnouncement,
   buildConfirmPhrase,
@@ -30,10 +30,15 @@ export interface UseVoiceAssistantOptions {
   /** Only the currently selected pair's prediction changes are ever spoken -- see
    * onPredictionChange. */
   selectedPair: Pair;
-  /** Latest per-pair evaluation, same data the prediction card renders -- used by
-   * "analyze X" so it speaks the real current state (including a real no-trade
-   * reason), not just a search through recently-executable signals. */
-  predictions: Partial<Record<Pair, PredictionUpdate>>;
+  /** Three signal engines (15m/30m/1h) run concurrently per pair now -- only the
+   * currently selected timeframe's changes are spoken, same reasoning as selectedPair.
+   * Also which timeframe "analyze X" reports on. */
+  selectedTimeframe: Timeframe;
+  /** Latest per-pair-per-timeframe evaluation, same data the prediction card renders --
+   * used by "analyze X" so it speaks the real current state (including a real no-trade
+   * reason) for whichever timeframe is currently selected, not just a search through
+   * recently-executable signals. */
+  predictions: Partial<Record<Pair, Partial<Record<Timeframe, PredictionUpdate>>>>;
 }
 
 export interface VoiceAssistantState {
@@ -59,6 +64,7 @@ export function useVoiceAssistant({
   statuses,
   executeSignal,
   selectedPair,
+  selectedTimeframe,
   predictions,
 }: UseVoiceAssistantOptions): VoiceAssistantState {
   const api = useApi();
@@ -76,11 +82,15 @@ export function useVoiceAssistant({
   const settingsRef = useRef(settings);
   const signalsRef = useRef(signals);
   const selectedPairRef = useRef(selectedPair);
+  const selectedTimeframeRef = useRef(selectedTimeframe);
   const predictionsRef = useRef(predictions);
-  // Previous *headline* per pair (not raw confidence) -- tracked for every pair so a
-  // change that happened while a different pair was selected doesn't misfire once the
-  // user switches back to it.
-  const prevPredictionRef = useRef<Partial<Record<Pair, string>>>({});
+  // Previous *headline* per (pair, timeframe) composite key -- not raw confidence, and
+  // not per-pair alone anymore now that three signal engines (15m/30m/1h) run
+  // concurrently per pair (collapsing them into one remembered headline per pair would
+  // misfire the moment the timeframe selector changes). Tracked for every pair+timeframe
+  // so a change that happened while a different one was selected doesn't misfire once
+  // the user switches back to it.
+  const prevPredictionRef = useRef<Partial<Record<string, string>>>({});
 
   // Keeps both refs pointed at the latest value without forcing every callback below to
   // be redeclared on every settings/signals change -- assigned in an effect (not during
@@ -90,6 +100,7 @@ export function useVoiceAssistant({
     settingsRef.current = settings;
     signalsRef.current = signals;
     selectedPairRef.current = selectedPair;
+    selectedTimeframeRef.current = selectedTimeframe;
     predictionsRef.current = predictions;
   });
 
@@ -179,7 +190,7 @@ export function useVoiceAssistant({
         await say("JUDE is listening again.");
         return;
       case "analyze": {
-        const update = predictionsRef.current[command.pair] ?? null;
+        const update = predictionsRef.current[command.pair]?.[selectedTimeframeRef.current] ?? null;
         await say(buildAnalysisAnnouncement(command.pair, update));
         return;
       }
@@ -262,16 +273,19 @@ export function useVoiceAssistant({
    * A passive status readout, not an actionable trade opportunity -- deliberately
    * bypasses pendingRef/setPendingSignal (that machinery exists to guarantee a real
    * trade opportunity is never dropped or talked over), since only the *latest*
-   * headline for the selected pair ever matters here. `say()`'s speech.ts wrapper
-   * already resolves in sequence, so this can't talk over a pending trade confirmation.
+   * headline for the selected pair+timeframe ever matters here. `say()`'s speech.ts
+   * wrapper already resolves in sequence, so this can't talk over a pending trade
+   * confirmation.
    */
   const onPredictionChange = useCallback((update: PredictionUpdate) => {
     const label = predictionHeadline(update.evaluation);
-    const prev = prevPredictionRef.current[update.pair];
-    prevPredictionRef.current[update.pair] = label;
+    const key = `${update.pair}|${update.timeframe}`;
+    const prev = prevPredictionRef.current[key];
+    prevPredictionRef.current[key] = label;
     if (prev === label) return;
     if (!settingsRef.current.enabled) return;
     if (update.pair !== selectedPairRef.current) return;
+    if (update.timeframe !== selectedTimeframeRef.current) return;
     void say(buildPredictionAnnouncement(update));
   }, []);
 

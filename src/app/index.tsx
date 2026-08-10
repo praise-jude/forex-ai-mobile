@@ -15,6 +15,7 @@ import {
   type PredictionUpdate,
   type Signal,
   type SignalsSnapshot,
+  type Timeframe,
   type WatchlistEntry,
 } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
@@ -25,6 +26,7 @@ import { RiskGuardianBanner } from "@/components/dashboard/RiskGuardianBanner";
 import { Watchlist } from "@/components/dashboard/Watchlist";
 import { PriceChart } from "@/components/dashboard/PriceChart";
 import { PredictionCard } from "@/components/dashboard/PredictionCard";
+import { TimeframeSelector } from "@/components/dashboard/TimeframeSelector";
 import { SignalsList } from "@/components/dashboard/SignalsList";
 import { PositionsList } from "@/components/dashboard/PositionsList";
 import { SignalToastStack, type ToastEntry } from "@/components/dashboard/SignalToast";
@@ -32,10 +34,17 @@ import { VoiceAssistantPanel } from "@/components/dashboard/VoiceAssistantPanel"
 import { useVoiceAssistant } from "@/lib/voice/useVoiceAssistant";
 
 const SIGNALS_POLL_MS = 5000;
-const TIMEFRAME = "15m";
 
 function emptyWatchlist(): WatchlistEntry[] {
   return PAIRS.map((pair) => ({ pair, bid: null, ask: null, time: null }));
+}
+
+function buildPredictionMap(updates: PredictionUpdate[]): Partial<Record<Pair, Partial<Record<Timeframe, PredictionUpdate>>>> {
+  const map: Partial<Record<Pair, Partial<Record<Timeframe, PredictionUpdate>>>> = {};
+  for (const update of updates) {
+    map[update.pair] = { ...map[update.pair], [update.timeframe]: update };
+  }
+  return map;
 }
 
 export default function DashboardScreen() {
@@ -43,6 +52,7 @@ export default function DashboardScreen() {
   const api = useApi();
 
   const [selectedPair, setSelectedPair] = useState<Pair>(PAIRS[0]);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("15m");
   const [localStatuses, setLocalStatuses] = useState<Record<string, CardStatus>>({});
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
 
@@ -57,9 +67,8 @@ export default function DashboardScreen() {
 
   const watchlist = snapshot?.watchlist ?? emptyWatchlist();
   const signals = snapshot?.signals ?? [];
-  const predictions: Partial<Record<Pair, PredictionUpdate>> = Object.fromEntries(
-    (snapshot?.predictions ?? []).map((p) => [p.pair, p])
-  );
+  const predictions = buildPredictionMap(snapshot?.predictions ?? []);
+  const selectedPrediction = predictions[selectedPair]?.[selectedTimeframe] ?? null;
 
   const dismissToast = useCallback((key: string) => {
     setToasts((prev) => prev.filter((t) => t.key !== key));
@@ -84,6 +93,7 @@ export default function DashboardScreen() {
     statuses: localStatuses,
     executeSignal: (signal) => void executeSignal(signal),
     selectedPair,
+    selectedTimeframe,
     predictions,
   });
 
@@ -167,10 +177,14 @@ export default function DashboardScreen() {
 
         <Watchlist entries={watchlist} selectedPair={selectedPair} onSelect={setSelectedPair} />
 
-        <PredictionCard update={predictions[selectedPair] ?? null} />
+        <View style={styles.timeframeRow}>
+          <TimeframeSelector value={selectedTimeframe} onChange={setSelectedTimeframe} />
+        </View>
+
+        <PredictionCard update={selectedPrediction} />
 
         <View style={styles.card}>
-          <PriceChart pair={selectedPair} timeframe={TIMEFRAME} prediction={predictions[selectedPair] ?? null} />
+          <PriceChart pair={selectedPair} timeframe={selectedTimeframe} prediction={selectedPrediction} />
         </View>
 
         <SignalsList signals={signals} statuses={localStatuses} onExecute={executeSignal} />
@@ -196,6 +210,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
   },
+  timeframeRow: { flexDirection: "row", justifyContent: "flex-end" },
   card: {
     borderRadius: 14,
     borderWidth: 1,

@@ -1,8 +1,20 @@
-import type { ExecuteResponse, Pair, PredictionUpdate, Signal } from "@/lib/api/types";
+import type { ExecuteResponse, Pair, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
 import { formatPrice } from "@/lib/api/format";
 import { describeNoTradeReason } from "@/lib/api/noTradeReason";
 import { predictionHeadline } from "@/lib/api/predictionLabel";
 import { PAIR_SPOKEN_NAMES, matchPair, tickerWord } from "./pairNames";
+
+// Three independent signal engines (15m/30m/1h) can now announce for the same pair
+// moments apart -- spoken so a listener can tell them apart. Mirrors forex-ai's web
+// grammar.ts (that file is the source of truth for this mapping; kept in sync by hand).
+const TIMEFRAME_SPOKEN: Record<Timeframe, string> = {
+  "5m": "5 minute",
+  "15m": "15 minute",
+  "30m": "30 minute",
+  "1h": "1 hour",
+  "4h": "4 hour",
+  "1d": "daily",
+};
 
 /** The exact phrase the user must say to hard-confirm a trade -- deliberately requires an
  * exact match (see parseVoiceCommand) so background noise or a vague "yes" can never fire
@@ -16,7 +28,7 @@ export function buildSignalAnnouncement(signal: Signal): string {
   const directionWord = signal.direction === "long" ? "buy" : "sell";
   return [
     `JUDE here. I have a potential ${directionWord} opportunity.`,
-    `The market is ${PAIR_SPOKEN_NAMES[signal.pair]}.`,
+    `The market is ${PAIR_SPOKEN_NAMES[signal.pair]}, on the ${TIMEFRAME_SPOKEN[signal.timeframe]} timeframe.`,
     `Entry ${formatPrice(signal.pair, signal.entry)}.`,
     `Stop loss ${formatPrice(signal.pair, signal.stopLoss)}.`,
     `Take profit ${formatPrice(signal.pair, signal.takeProfit)}.`,
@@ -42,7 +54,7 @@ export function buildAnalysisAnnouncement(pair: Pair, update: PredictionUpdate |
   const directionWord = signal.direction === "long" ? "BUY" : "SELL";
   const tierWord = signal.tier === "watch" ? "a watch-tier setup, below the execution threshold" : `a ${directionWord} setup`;
   return [
-    `${name} currently shows ${tierWord} on the ${signal.timeframe} timeframe.`,
+    `${name} currently shows ${tierWord} on the ${TIMEFRAME_SPOKEN[signal.timeframe]} timeframe.`,
     `Confidence ${Math.round(signal.confidence)} percent.`,
     `Entry ${formatPrice(pair, signal.entry)}, stop loss ${formatPrice(pair, signal.stopLoss)}, take profit ${formatPrice(pair, signal.takeProfit)}.`,
   ].join(" ");
@@ -57,19 +69,20 @@ export function buildAnalysisAnnouncement(pair: Pair, update: PredictionUpdate |
  */
 export function buildPredictionAnnouncement(update: PredictionUpdate): string {
   const pairName = PAIR_SPOKEN_NAMES[update.pair];
+  const timeframeWord = TIMEFRAME_SPOKEN[update.timeframe];
 
   if (update.evaluation.status === "no_trade") {
-    return `JUDE here. ${pairName} is now no trade. ${describeNoTradeReason(update.evaluation.reason)}`;
+    return `JUDE here. ${pairName} is now no trade on the ${timeframeWord} timeframe. ${describeNoTradeReason(update.evaluation.reason)}`;
   }
 
   const { signal } = update.evaluation;
   if (signal.tier === "watch") {
     const lean = signal.direction === "long" ? "buy" : "sell";
-    return `JUDE here. ${pairName} has moved to neutral -- leaning ${lean} at ${signal.confidence.toFixed(0)} percent, below the execution threshold.`;
+    return `JUDE here. ${pairName} has moved to neutral on the ${timeframeWord} timeframe -- leaning ${lean} at ${signal.confidence.toFixed(0)} percent, below the execution threshold.`;
   }
 
   const headline = predictionHeadline(update.evaluation).toLowerCase();
-  return `JUDE here. ${pairName} is now a ${headline} at ${signal.confidence.toFixed(0)} percent confidence.`;
+  return `JUDE here. ${pairName} is now a ${headline} at ${signal.confidence.toFixed(0)} percent confidence on the ${timeframeWord} timeframe.`;
 }
 
 function blockedReasonSpeech(code: string, reason: string): string {

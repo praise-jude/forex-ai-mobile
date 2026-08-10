@@ -79,7 +79,7 @@ function SignalCard({ signal, status, onExecute }: { signal: Signal; status: Car
           <Text style={styles.pair}>{signal.pair}</Text>
           <View style={[styles.tierBadge, { backgroundColor: signal.tier === "watch" ? DashboardColors.amberBg : DashboardColors.skyBg }]}>
             <Text style={[styles.tierText, { color: signal.tier === "watch" ? DashboardColors.amber : DashboardColors.sky }]}>
-              {TIER_LABEL[signal.tier]} · {signal.confidence.toFixed(0)}%
+              {TIER_LABEL[signal.tier]} · {signal.confidence.toFixed(0)}% · {signal.timeframe}
             </Text>
           </View>
           <Text style={styles.subScore}>
