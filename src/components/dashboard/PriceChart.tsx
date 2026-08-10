@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, memo, useMemo, useState } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Line, Polyline, Rect } from "react-native-svg";
 import { useApi } from "@/lib/api/client";
@@ -31,9 +31,27 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
     setWidth(e.nativeEvent.layout.width);
   }
 
-  const candles = (data?.candles ?? []).slice(-MAX_CANDLES);
+  const rawCandles = data?.candles ?? [];
+  const lastRaw = rawCandles[rawCandles.length - 1];
+  // Every poll tick (every 5s) hands back a freshly-parsed array/object even when the
+  // underlying candles/signal haven't actually changed since M15/M30/1H candles close far
+  // less often than that -- keyed on a cheap fingerprint (not the array/object reference
+  // itself) so CandleChart's React.memo below can actually skip re-rendering the whole SVG
+  // on the many ticks where nothing visible changed.
+  const candles = useMemo(
+    () => rawCandles.slice(-MAX_CANDLES),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately fingerprinted on length + last candle's time/close instead of rawCandles itself, which is a new array reference every poll regardless of content.
+    [rawCandles.length, lastRaw?.time, lastRaw?.close]
+  );
   const matchesSelection = prediction?.pair === pair && prediction?.timeframe === timeframe;
-  const signal = matchesSelection && prediction?.evaluation.status === "signal" ? prediction.evaluation.signal : null;
+  const rawSignal = matchesSelection && prediction?.evaluation.status === "signal" ? prediction.evaluation.signal : null;
+  // Signal records are immutable once created (signalStore.ts never mutates one in
+  // place) -- same id means same content, so this is safe to key on id alone.
+  const signal = useMemo(
+    () => rawSignal,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately keyed on id only, for the same reference-stability reason as `candles` above.
+    [rawSignal?.id]
+  );
 
   return (
     <View>
@@ -55,7 +73,10 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
   );
 }
 
-function CandleChart({
+// Memoized so the many poll ticks that hand back an unchanged (but referentially fresh)
+// candles/signal fingerprint -- see PriceChart's own useMemo calls above -- skip
+// re-rendering the whole SVG (~60 candles + annotation lines) entirely.
+const CandleChart = memo(function CandleChart({
   candles,
   pair,
   width,
@@ -171,7 +192,7 @@ function CandleChart({
       ))}
     </View>
   );
-}
+});
 
 function SvgLabel({ x, y, text, highlight }: { x: number; y: number; text: string; highlight?: boolean }) {
   return (

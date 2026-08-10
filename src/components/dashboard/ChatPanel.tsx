@@ -93,7 +93,7 @@ export function ChatPanel() {
       <FlatList
         ref={listRef}
         data={messages}
-        keyExtractor={(_, i) => String(i)}
+        keyExtractor={(item, i) => `${item.role}-${item.time}-${i}`}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
