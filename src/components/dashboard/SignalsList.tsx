@@ -4,7 +4,9 @@ import { formatPrice, relativeTime } from "@/lib/api/format";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { TradingRobotBadge } from "./TradingRobotBadge";
 
-const CONFLUENCE_LABEL: Record<Confluence, string> = {
+// Exported for reuse by PredictionCard.tsx -- one place a confluence tag's display
+// name is defined, not duplicated between the two components that show them.
+export const CONFLUENCE_LABEL: Record<Confluence, string> = {
   liquidity_sweep: "Liquidity sweep",
   bos: "Structure break (BOS)",
   choch: "Change of character (CHoCH)",

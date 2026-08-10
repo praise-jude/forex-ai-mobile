@@ -1,8 +1,16 @@
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from "expo-audio";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApi } from "@/lib/api/client";
-import type { CardStatus, PositionsResponse, Signal } from "@/lib/api/types";
-import { buildAnalysisAnnouncement, buildConfirmPhrase, buildResultAnnouncement, buildSignalAnnouncement, parseVoiceCommand } from "./grammar";
+import { predictionHeadline } from "@/lib/api/predictionLabel";
+import type { CardStatus, Pair, PositionsResponse, PredictionUpdate, Signal } from "@/lib/api/types";
+import {
+  buildAnalysisAnnouncement,
+  buildConfirmPhrase,
+  buildPredictionAnnouncement,
+  buildResultAnnouncement,
+  buildSignalAnnouncement,
+  parseVoiceCommand,
+} from "./grammar";
 import { speak } from "./speech";
 import { transcribeAudio, TranscribeError } from "./transcribe";
 import { useSettings } from "@/lib/api/SettingsContext";
@@ -19,6 +27,13 @@ export interface UseVoiceAssistantOptions {
   /** The exact same function passed to SignalsList -- voice execution is never a separate
    * code path from the manual button, so it can never bypass the backend's risk checks. */
   executeSignal: (signal: Signal) => void;
+  /** Only the currently selected pair's prediction changes are ever spoken -- see
+   * onPredictionChange. */
+  selectedPair: Pair;
+  /** Latest per-pair evaluation, same data the prediction card renders -- used by
+   * "analyze X" so it speaks the real current state (including a real no-trade
+   * reason), not just a search through recently-executable signals. */
+  predictions: Partial<Record<Pair, PredictionUpdate>>;
 }
 
 export interface VoiceAssistantState {
@@ -33,9 +48,19 @@ export interface VoiceAssistantState {
    * settings allow. Never fires for a signal arriving while the app is backgrounded;
    * that's what push notifications are for (TTS can't run once JS is suspended anyway). */
   onSignal: (signal: Signal) => void;
+  /** Called from the Dashboard's snapshot-poll effect for every pair's prediction
+   * update -- only speaks for the currently selected pair, and only on a genuine
+   * headline change (never a same-tier confidence wobble). */
+  onPredictionChange: (update: PredictionUpdate) => void;
 }
 
-export function useVoiceAssistant({ signals, statuses, executeSignal }: UseVoiceAssistantOptions): VoiceAssistantState {
+export function useVoiceAssistant({
+  signals,
+  statuses,
+  executeSignal,
+  selectedPair,
+  predictions,
+}: UseVoiceAssistantOptions): VoiceAssistantState {
   const api = useApi();
   const { settings } = useVoiceSettings();
   const { authHeader, serverUrl } = useSettings();
@@ -50,6 +75,12 @@ export function useVoiceAssistant({ signals, statuses, executeSignal }: UseVoice
   const pendingRef = useRef<Signal | null>(null);
   const settingsRef = useRef(settings);
   const signalsRef = useRef(signals);
+  const selectedPairRef = useRef(selectedPair);
+  const predictionsRef = useRef(predictions);
+  // Previous *headline* per pair (not raw confidence) -- tracked for every pair so a
+  // change that happened while a different pair was selected doesn't misfire once the
+  // user switches back to it.
+  const prevPredictionRef = useRef<Partial<Record<Pair, string>>>({});
 
   // Keeps both refs pointed at the latest value without forcing every callback below to
   // be redeclared on every settings/signals change -- assigned in an effect (not during
@@ -58,6 +89,8 @@ export function useVoiceAssistant({ signals, statuses, executeSignal }: UseVoice
   useEffect(() => {
     settingsRef.current = settings;
     signalsRef.current = signals;
+    selectedPairRef.current = selectedPair;
+    predictionsRef.current = predictions;
   });
 
   function say(text: string): Promise<void> {
@@ -146,8 +179,8 @@ export function useVoiceAssistant({ signals, statuses, executeSignal }: UseVoice
         await say("JUDE is listening again.");
         return;
       case "analyze": {
-        const latest = signalsRef.current.find((s) => s.pair === command.pair) ?? null;
-        await say(buildAnalysisAnnouncement(command.pair, latest));
+        const update = predictionsRef.current[command.pair] ?? null;
+        await say(buildAnalysisAnnouncement(command.pair, update));
         return;
       }
       case "trade_request": {
@@ -225,6 +258,23 @@ export function useVoiceAssistant({ signals, statuses, executeSignal }: UseVoice
     void say(buildSignalAnnouncement(signal));
   }, []);
 
+  /**
+   * A passive status readout, not an actionable trade opportunity -- deliberately
+   * bypasses pendingRef/setPendingSignal (that machinery exists to guarantee a real
+   * trade opportunity is never dropped or talked over), since only the *latest*
+   * headline for the selected pair ever matters here. `say()`'s speech.ts wrapper
+   * already resolves in sequence, so this can't talk over a pending trade confirmation.
+   */
+  const onPredictionChange = useCallback((update: PredictionUpdate) => {
+    const label = predictionHeadline(update.evaluation);
+    const prev = prevPredictionRef.current[update.pair];
+    prevPredictionRef.current[update.pair] = label;
+    if (prev === label) return;
+    if (!settingsRef.current.enabled) return;
+    if (update.pair !== selectedPairRef.current) return;
+    void say(buildPredictionAnnouncement(update));
+  }, []);
+
   // Narrates the real result once the pending signal's execution resolves, however it
   // was triggered (voice hard-confirm or the plain SignalsList Buy/Sell button) -- one
   // place speaks the outcome for both, matching the web app's identical design.
@@ -240,5 +290,5 @@ export function useVoiceAssistant({ signals, statuses, executeSignal }: UseVoice
     }
   }, [statuses, pendingSignal]);
 
-  return { recorderStatus, lastTranscript, lastMessage, pendingSignal, micError, toggleRecording, onSignal };
+  return { recorderStatus, lastTranscript, lastMessage, pendingSignal, micError, toggleRecording, onSignal, onPredictionChange };
 }

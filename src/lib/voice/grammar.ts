@@ -1,5 +1,7 @@
-import type { ExecuteResponse, Pair, Signal } from "@/lib/api/types";
+import type { ExecuteResponse, Pair, PredictionUpdate, Signal } from "@/lib/api/types";
 import { formatPrice } from "@/lib/api/format";
+import { describeNoTradeReason } from "@/lib/api/noTradeReason";
+import { predictionHeadline } from "@/lib/api/predictionLabel";
 import { PAIR_SPOKEN_NAMES, matchPair, tickerWord } from "./pairNames";
 
 /** The exact phrase the user must say to hard-confirm a trade -- deliberately requires an
@@ -23,13 +25,20 @@ export function buildSignalAnnouncement(signal: Signal): string {
   ].join(" ");
 }
 
-/** Spoken form of a signal already sitting on the dashboard, for "analyze X" / "what's
- * the X signal" queries -- distinct from buildSignalAnnouncement, which is the proactive
- * "a new signal just arrived" announcement. */
-export function buildAnalysisAnnouncement(pair: Pair, signal: Signal | null): string {
+/** Spoken form of the real current evaluation for a pair, for "analyze X" / "what's the
+ * X signal" queries -- distinct from buildSignalAnnouncement, which is the proactive "a
+ * new signal just arrived" announcement. Uses the same real evaluation data (and the
+ * same no-trade reasoning) as the prediction card and buildPredictionAnnouncement, so
+ * "analyze X" never says less than what's already on screen. */
+export function buildAnalysisAnnouncement(pair: Pair, update: PredictionUpdate | null): string {
   const name = PAIR_SPOKEN_NAMES[pair];
-  if (!signal) return `No active setup on ${name} right now.`;
+  if (!update) return `No active setup on ${name} right now.`;
 
+  if (update.evaluation.status === "no_trade") {
+    return `${name} is currently no trade. ${describeNoTradeReason(update.evaluation.reason)}`;
+  }
+
+  const { signal } = update.evaluation;
   const directionWord = signal.direction === "long" ? "BUY" : "SELL";
   const tierWord = signal.tier === "watch" ? "a watch-tier setup, below the execution threshold" : `a ${directionWord} setup`;
   return [
@@ -37,6 +46,30 @@ export function buildAnalysisAnnouncement(pair: Pair, signal: Signal | null): st
     `Confidence ${Math.round(signal.confidence)} percent.`,
     `Entry ${formatPrice(pair, signal.entry)}, stop loss ${formatPrice(pair, signal.stopLoss)}, take profit ${formatPrice(pair, signal.takeProfit)}.`,
   ].join(" ");
+}
+
+/**
+ * A short status readout for a prediction-headline change on the currently selected
+ * pair -- distinct from buildSignalAnnouncement's full trade pitch, since this fires on
+ * *any* headline change (including into NEUTRAL/NO TRADE), not just a new executable
+ * signal. Never fabricates a reason -- the no_trade/watch detail comes straight from
+ * describeNoTradeReason / the real Signal fields. Mirrors forex-ai's web grammar.ts.
+ */
+export function buildPredictionAnnouncement(update: PredictionUpdate): string {
+  const pairName = PAIR_SPOKEN_NAMES[update.pair];
+
+  if (update.evaluation.status === "no_trade") {
+    return `JUDE here. ${pairName} is now no trade. ${describeNoTradeReason(update.evaluation.reason)}`;
+  }
+
+  const { signal } = update.evaluation;
+  if (signal.tier === "watch") {
+    const lean = signal.direction === "long" ? "buy" : "sell";
+    return `JUDE here. ${pairName} has moved to neutral -- leaning ${lean} at ${signal.confidence.toFixed(0)} percent, below the execution threshold.`;
+  }
+
+  const headline = predictionHeadline(update.evaluation).toLowerCase();
+  return `JUDE here. ${pairName} is now a ${headline} at ${signal.confidence.toFixed(0)} percent confidence.`;
 }
 
 function blockedReasonSpeech(code: string, reason: string): string {

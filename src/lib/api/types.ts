@@ -77,6 +77,38 @@ export interface Signal {
   session: Session;
   timeframe: Timeframe;
   createdAt: number;
+  /** The real SMC order-block/FVG zone bounds behind `entry`. Optional -- TradingView-
+   * sourced signals have no zone concept. */
+  zoneTop?: number;
+  zoneBottom?: number;
+}
+
+// Mirrors confidenceScore.ts's DimensionScore -- the two independently-bottlenecked
+// 0-100 sub-scores (direction, entry) behind a Signal's confidence/tier.
+export interface DimensionScore {
+  total: number;
+  tier: ConfidenceTier | "no_trade";
+  reasons: Confluence[];
+}
+
+// Mirrors forex-ai's NoTradeReason/SignalEvaluation/PredictionUpdate -- why a given M15
+// candle close did NOT produce a Signal, computed server-side from the same real gate
+// data, never guessed client-side.
+export type NoTradeReason =
+  | { code: "outside_killzone" }
+  | { code: "no_setup" }
+  | { code: "trend_disagreement"; impliedDirection: "long" | "short"; d1: string; h4: string; h1: string }
+  | { code: "weak_trend_adx"; adx: number }
+  | { code: "low_volatility"; atr: number; atrAverage: number }
+  | { code: "below_threshold"; direction: DimensionScore; entry: DimensionScore };
+
+export type SignalEvaluation = { status: "signal"; signal: Signal } | { status: "no_trade"; reason: NoTradeReason };
+
+export interface PredictionUpdate {
+  pair: Pair;
+  timeframe: Timeframe;
+  evaluation: SignalEvaluation;
+  time: number;
 }
 
 export type AccountKey = "live" | "demo";
@@ -128,6 +160,7 @@ export interface SignalsSnapshot {
   watchlist: WatchlistEntry[];
   signals: Signal[];
   executedTrades: ExecutedTrade[];
+  predictions: PredictionUpdate[];
 }
 
 export interface PositionsResponse {

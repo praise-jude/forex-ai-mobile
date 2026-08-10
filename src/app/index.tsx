@@ -6,7 +6,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { useSettings } from "@/lib/api/SettingsContext";
-import { statusFromTrade, PAIRS, type CardStatus, type ExecuteResponse, type Pair, type Signal, type SignalsSnapshot, type WatchlistEntry } from "@/lib/api/types";
+import {
+  statusFromTrade,
+  PAIRS,
+  type CardStatus,
+  type ExecuteResponse,
+  type Pair,
+  type PredictionUpdate,
+  type Signal,
+  type SignalsSnapshot,
+  type WatchlistEntry,
+} from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ConnectionStatusBadge } from "@/components/dashboard/ConnectionStatusBadge";
 import { EngineModeControl } from "@/components/dashboard/EngineModeControl";
@@ -14,6 +24,7 @@ import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
 import { RiskGuardianBanner } from "@/components/dashboard/RiskGuardianBanner";
 import { Watchlist } from "@/components/dashboard/Watchlist";
 import { PriceChart } from "@/components/dashboard/PriceChart";
+import { PredictionCard } from "@/components/dashboard/PredictionCard";
 import { SignalsList } from "@/components/dashboard/SignalsList";
 import { PositionsList } from "@/components/dashboard/PositionsList";
 import { SignalToastStack, type ToastEntry } from "@/components/dashboard/SignalToast";
@@ -46,6 +57,9 @@ export default function DashboardScreen() {
 
   const watchlist = snapshot?.watchlist ?? emptyWatchlist();
   const signals = snapshot?.signals ?? [];
+  const predictions: Partial<Record<Pair, PredictionUpdate>> = Object.fromEntries(
+    (snapshot?.predictions ?? []).map((p) => [p.pair, p])
+  );
 
   const dismissToast = useCallback((key: string) => {
     setToasts((prev) => prev.filter((t) => t.key !== key));
@@ -65,7 +79,13 @@ export default function DashboardScreen() {
     [api]
   );
 
-  const voice = useVoiceAssistant({ signals, statuses: localStatuses, executeSignal: (signal) => void executeSignal(signal) });
+  const voice = useVoiceAssistant({
+    signals,
+    statuses: localStatuses,
+    executeSignal: (signal) => void executeSignal(signal),
+    selectedPair,
+    predictions,
+  });
 
   // Synchronizes local notification/status state with the polled server feed -- new
   // signals become toasts (and a JUDE voice announcement), executed trades seed a card's
@@ -98,7 +118,12 @@ export default function DashboardScreen() {
     }
     if (newToasts.length > 0) setToasts((prev) => [...prev, ...newToasts]);
     firstSnapshot.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.onSignal has a stable identity (see useVoiceAssistant's own empty-deps useCallback); omitted so this effect doesn't re-run on every voice-state change.
+
+    // Fed to every pair, not just selectedPair -- onPredictionChange itself decides
+    // whether to actually speak (only for the currently selected pair) vs silently
+    // track the headline so a background pair's change doesn't misfire once selected.
+    for (const update of snapshot.predictions) voice.onPredictionChange(update);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.onSignal/onPredictionChange have stable identities (see useVoiceAssistant's own empty-deps useCallback); omitted so this effect doesn't re-run on every voice-state change.
   }, [snapshot]);
 
   if (!loaded) return null;
@@ -142,8 +167,10 @@ export default function DashboardScreen() {
 
         <Watchlist entries={watchlist} selectedPair={selectedPair} onSelect={setSelectedPair} />
 
+        <PredictionCard update={predictions[selectedPair] ?? null} />
+
         <View style={styles.card}>
-          <PriceChart pair={selectedPair} timeframe={TIMEFRAME} />
+          <PriceChart pair={selectedPair} timeframe={TIMEFRAME} prediction={predictions[selectedPair] ?? null} />
         </View>
 
         <SignalsList signals={signals} statuses={localStatuses} onExecute={executeSignal} />
