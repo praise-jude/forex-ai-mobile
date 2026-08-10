@@ -12,7 +12,10 @@ export function speak(text: string, settings: VoiceSettings): Promise<void> {
       volume: settings.volume,
       onDone: () => resolve(),
       onStopped: () => resolve(),
-      onError: () => resolve(),
+      onError: (error) => {
+        console.error("[voice] speech synthesis failed:", error);
+        resolve();
+      },
     });
   });
 }
