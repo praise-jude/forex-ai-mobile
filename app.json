@@ -8,7 +8,6 @@
     "scheme": "forexaimobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.forexai.mobile",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "JUDE listens for your voice commands (e.g. \"analyze gold\") when you tap the mic button.",
