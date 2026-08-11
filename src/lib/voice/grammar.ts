@@ -195,8 +195,17 @@ const BUY_WORDS = ["buy", "long"];
 const SELL_WORDS = ["sell", "short"];
 const ANALYZE_WORDS = ["analyze", "analyse", "whats the", "what is the", "how is", "check"];
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Word-boundary match, not raw substring -- a bare `.includes()` here would classify
+ * "I know the risk, go ahead" as a decline (because "know" contains "no") or "eyeshadow
+ * looks nice" as a soft-confirm (because "eyeshadow" contains "yes"). This drives real
+ * trade confirm/decline classification, so a false match isn't just a UX annoyance.
+ * Mirrors forex-ai's web lib/voice/grammar.ts. */
 function matchesAny(normalized: string, phrases: string[]): boolean {
-  return phrases.some((phrase) => normalized === phrase || normalized.includes(phrase));
+  return phrases.some((phrase) => normalized === phrase || new RegExp(`\\b${escapeRegExp(phrase)}\\b`).test(normalized));
 }
 
 function containsWord(normalized: string, words: string[]): boolean {

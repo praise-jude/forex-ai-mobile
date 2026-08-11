@@ -42,8 +42,9 @@ export async function registerForPushNotificationsAsync(): Promise<PushTokenResu
     return { error: "Notification permission was denied." };
   }
 
-  // Set via `eas init` (see the mobile setup doc) -- until then this is blank and push
-  // registration fails closed with a clear reason instead of crashing.
+  // Set via `eas init` (already configured in app.json's extra.eas.projectId) -- the
+  // guard below stays as a fail-closed safety net with a clear reason, not a crash, in
+  // case a future rebuild ever loses that config rather than because it's unset today.
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   if (!projectId || typeof projectId !== "string") {
     return { error: "EAS project not configured yet (run `eas init` and rebuild)." };

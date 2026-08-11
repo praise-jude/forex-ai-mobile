@@ -39,6 +39,9 @@ export function Watchlist({
             <Pressable
               key={entry.pair}
               onPress={() => onSelect(entry.pair)}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${entry.pair}`}
+              accessibilityState={{ selected }}
               style={[styles.chip, selected && styles.chipSelected]}
             >
               <Text style={styles.chipPair}>{entry.pair}</Text>

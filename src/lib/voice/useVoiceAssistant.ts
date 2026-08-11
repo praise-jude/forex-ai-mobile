@@ -78,6 +78,17 @@ export function useVoiceAssistant({
   const [micError, setMicError] = useState<string | null>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Guards every setState that follows an `await` (TTS finish, transcription, mic
+  // permission) against firing after this hook's owning component (Dashboard) has
+  // unmounted -- a fast tab switch mid-speech/mid-transcription would otherwise trip
+  // React's "set state on an unmounted component" warning/leak, same class of bug
+  // SettingsContext.tsx's `cancelled` flag and PushContext.tsx guard against.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const pendingRef = useRef<Signal | null>(null);
   const settingsRef = useRef(settings);
   const signalsRef = useRef(signals);
@@ -105,9 +116,12 @@ export function useVoiceAssistant({
   });
 
   function say(text: string): Promise<void> {
+    if (!mountedRef.current) return Promise.resolve();
     setLastMessage(text);
     setRecorderStatus("speaking");
-    return speak(text, settingsRef.current).finally(() => setRecorderStatus("idle"));
+    return speak(text, settingsRef.current).finally(() => {
+      if (mountedRef.current) setRecorderStatus("idle");
+    });
   }
 
   function resolvePending() {
@@ -215,18 +229,21 @@ export function useVoiceAssistant({
   const startRecording = useCallback(async () => {
     setMicError(null);
     const permission = await requestRecordingPermissionsAsync();
+    if (!mountedRef.current) return;
     if (!permission.granted) {
       setMicError("Microphone permission was denied. Enable it in your device Settings to use voice commands.");
       return;
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
+    if (!mountedRef.current) return;
     recorder.record();
     setRecorderStatus("recording");
   }, [recorder]);
 
   const stopRecordingAndProcess = useCallback(async () => {
     await recorder.stop();
+    if (!mountedRef.current) return;
     const uri = recorder.uri;
     setRecorderStatus("transcribing");
 
@@ -238,6 +255,7 @@ export function useVoiceAssistant({
 
     try {
       const transcript = await transcribeAudio(uri, serverUrl, authHeader);
+      if (!mountedRef.current) return;
       setLastTranscript(transcript);
       setRecorderStatus("idle");
       if (!transcript) {
@@ -246,6 +264,7 @@ export function useVoiceAssistant({
       }
       await handleTranscript(transcript);
     } catch (err) {
+      if (!mountedRef.current) return;
       setRecorderStatus("idle");
       setMicError(err instanceof TranscribeError ? err.message : "Something went wrong transcribing that.");
     }

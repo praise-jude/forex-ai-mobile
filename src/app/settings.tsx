@@ -45,11 +45,25 @@ function StepperRow({
     <View style={styles.toggleRow}>
       <Text style={[styles.toggleLabel, disabled && styles.dimmed]}>{label}</Text>
       <View style={styles.stepper}>
-        <Pressable onPress={onDecrement} disabled={disabled} style={styles.stepperButton}>
+        <Pressable
+          onPress={onDecrement}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`Decrease ${label}`}
+          accessibilityState={{ disabled }}
+          style={styles.stepperButton}
+        >
           <Text style={styles.stepperButtonText}>−</Text>
         </Pressable>
         <Text style={styles.stepperValue}>{displayValue}</Text>
-        <Pressable onPress={onIncrement} disabled={disabled} style={styles.stepperButton}>
+        <Pressable
+          onPress={onIncrement}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`Increase ${label}`}
+          accessibilityState={{ disabled }}
+          style={styles.stepperButton}
+        >
           <Text style={styles.stepperButtonText}>+</Text>
         </Pressable>
       </View>

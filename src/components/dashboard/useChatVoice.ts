@@ -1,5 +1,5 @@
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from "expo-audio";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "@/lib/api/SettingsContext";
 import { useVoiceSettings } from "@/lib/voice/VoiceSettingsContext";
 import { speak, stopSpeaking } from "@/lib/voice/speech";
@@ -32,11 +32,21 @@ export function useChatVoice(): ChatVoiceState {
   const [micError, setMicError] = useState<string | null>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Guards setState calls that follow an `await` against firing after this hook's
+  // owning component (ChatPanel) has unmounted -- same pattern as useVoiceAssistant.ts.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   async function speakIfEnabled(text: string): Promise<void> {
     if (!voiceOn) return;
     setStatus("speaking");
-    await speak(text, globalVoiceSettings).finally(() => setStatus("idle"));
+    await speak(text, globalVoiceSettings).finally(() => {
+      if (mountedRef.current) setStatus("idle");
+    });
   }
 
   function stopSpeakingNow(): void {
@@ -54,12 +64,14 @@ export function useChatVoice(): ChatVoiceState {
   const startRecording = useCallback(async () => {
     setMicError(null);
     const permission = await requestRecordingPermissionsAsync();
+    if (!mountedRef.current) return;
     if (!permission.granted) {
       setMicError("Microphone permission was denied. Enable it in your device Settings to use voice input.");
       return;
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
+    if (!mountedRef.current) return;
     recorder.record();
     setStatus("recording");
   }, [recorder]);
@@ -67,6 +79,7 @@ export function useChatVoice(): ChatVoiceState {
   const stopRecordingAndProcess = useCallback(
     async (onTranscript: (transcript: string) => void) => {
       await recorder.stop();
+      if (!mountedRef.current) return;
       const uri = recorder.uri;
       setStatus("transcribing");
 
@@ -78,6 +91,7 @@ export function useChatVoice(): ChatVoiceState {
 
       try {
         const transcript = await transcribeAudio(uri, serverUrl, authHeader);
+        if (!mountedRef.current) return;
         setStatus("idle");
         if (!transcript) {
           setMicError("I didn't hear anything.");
@@ -85,6 +99,7 @@ export function useChatVoice(): ChatVoiceState {
         }
         onTranscript(transcript);
       } catch (err) {
+        if (!mountedRef.current) return;
         setStatus("idle");
         setMicError(err instanceof TranscribeError ? err.message : "Something went wrong transcribing that.");
       }

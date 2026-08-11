@@ -25,9 +25,13 @@ export function ConnectionStatusBadge() {
   const [now, setNow] = useState(() => Date.now());
   const { data } = usePolling(() => api.get<ConnectionStatusResponse>("/api/connection-status"), POLL_INTERVAL_MS);
 
-  // Ticks independently of the poll so "updated Xs ago" stays smooth between fetches.
+  // Ticks independently of the poll so "updated Xs ago" stays reasonably fresh between
+  // fetches -- 5s, not 1s: a second-level countdown here would be imperceptible (unlike
+  // RiskGuardianBanner's cooldown timer, which genuinely benefits from 1s precision),
+  // so there's no reason to run a full extra 1Hz timer for the whole time the dashboard
+  // is on screen just for this label.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(id);
   }, []);
 

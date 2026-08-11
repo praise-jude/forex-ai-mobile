@@ -80,11 +80,17 @@ export function ChatPanel() {
         </View>
         <View style={styles.headerRight}>
           {voice.status === "speaking" && (
-            <Pressable onPress={voice.stopSpeakingNow} style={styles.iconButton}>
+            <Pressable onPress={voice.stopSpeakingNow} accessibilityRole="button" accessibilityLabel="Stop speaking" style={styles.iconButton}>
               <Text style={styles.iconButtonText}>⏹</Text>
             </Pressable>
           )}
-          <Pressable onPress={voice.toggleVoice} style={[styles.iconButton, voice.voiceOn && styles.iconButtonActive]}>
+          <Pressable
+            onPress={voice.toggleVoice}
+            accessibilityRole="button"
+            accessibilityLabel={voice.voiceOn ? "Mute spoken replies" : "Unmute spoken replies"}
+            accessibilityState={{ selected: voice.voiceOn }}
+            style={[styles.iconButton, voice.voiceOn && styles.iconButtonActive]}
+          >
             <Text style={styles.iconButtonText}>{voice.voiceOn ? "🔊" : "🔇"}</Text>
           </Pressable>
         </View>
@@ -139,6 +145,9 @@ export function ChatPanel() {
         <Pressable
           onPress={() => voice.toggleRecording((transcript) => void sendMessage(transcript))}
           disabled={micDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={voice.status === "recording" ? "Stop recording" : "Record a voice message"}
+          accessibilityState={{ disabled: micDisabled, selected: voice.status === "recording" }}
           style={[styles.iconButton, voice.status === "recording" && styles.iconButtonActive, micDisabled && styles.disabled]}
         >
           <Text style={styles.iconButtonText}>{voice.status === "recording" ? "⏺" : "🎙"}</Text>
@@ -152,10 +161,14 @@ export function ChatPanel() {
           style={styles.input}
           onSubmitEditing={() => void sendMessage(input)}
           returnKeyType="send"
+          accessibilityLabel="Message JUDE"
         />
         <Pressable
           onPress={() => void sendMessage(input)}
           disabled={sending || !input.trim()}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          accessibilityState={{ disabled: sending || !input.trim() }}
           style={[styles.sendButton, (sending || !input.trim()) && styles.disabled]}
         >
           <Text style={styles.sendButtonText}>Send</Text>

@@ -24,6 +24,9 @@ export function VoiceAssistantPanel(voice: VoiceAssistantState) {
         <Pressable
           onPress={toggleRecording}
           disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={isRecording ? "Stop recording" : "Talk to JUDE"}
+          accessibilityState={{ disabled: busy, selected: isRecording }}
           style={[styles.micButton, isRecording && styles.micButtonActive, busy && styles.micButtonBusy]}
         >
           <Text style={styles.micIcon}>{isRecording ? "■" : "🎙️"}</Text>
