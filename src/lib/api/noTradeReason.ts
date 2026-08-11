@@ -55,5 +55,18 @@ export function describeNoTradeReason(reason: NoTradeReason): string {
       if (missingEntry.length > 0) parts.push(`missing ${joinList(missingEntry)}`);
       return `${parts.join(" -- ")}.`;
     }
+    case "news_blackout": {
+      const directionWord = reason.impliedDirection === "long" ? "buy" : "sell";
+      return `A ${directionWord} setup formed, but a high-impact ${reason.currency} release ("${reason.event}") is due in about ${reason.minutesUntil} minute${reason.minutesUntil === 1 ? "" : "s"} -- holding off until after it clears.`;
+    }
+    case "signer_b_neutral": {
+      const directionWord = reason.impliedDirection === "long" ? "bullish" : "bearish";
+      return `SMC found a ${directionWord} setup, but the independent confirmation signer (trend, momentum, volatility, currency strength, session) doesn't have a clear lean either way -- I don't have enough confluence yet.`;
+    }
+    case "signer_conflict": {
+      const smcWord = reason.impliedDirection === "long" ? "bullish" : "bearish";
+      const signerBWord = reason.signerBDirection === "long" ? "bullish" : "bearish";
+      return `SMC found a ${smcWord} setup, but the independent confirmation signer is ${signerBWord} (${reason.signerBConfidence.toFixed(0)}% confidence) -- holding off until the two agree.`;
+    }
   }
 }

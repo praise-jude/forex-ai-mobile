@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import type { PredictionUpdate } from "@/lib/api/types";
+import type { PredictionUpdate, Signal } from "@/lib/api/types";
 import { predictionHeadline, predictionSubline, type PredictionHeadline } from "@/lib/api/predictionLabel";
 import { describeNoTradeReason } from "@/lib/api/noTradeReason";
 import { DashboardColors } from "@/constants/dashboardColors";
@@ -13,6 +13,89 @@ const HEADLINE_COLORS: Record<PredictionHeadline, { bg: string; fg: string }> = 
   "STRONG SELL": { bg: DashboardColors.roseBg, fg: DashboardColors.rose },
   "NO TRADE": { bg: DashboardColors.surface, fg: DashboardColors.textMuted },
 };
+
+const STATUS_COLOR = {
+  positive: DashboardColors.emerald,
+  negative: DashboardColors.rose,
+  neutral: DashboardColors.textMuted,
+} as const;
+
+/** Maps one Signer B factor's raw reading to a tone against this signal's own
+ * direction -- "unavailable"/"neutral" readings are real, honest non-answers (never
+ * fabricated as agreeing or disagreeing), so they stay neutral rather than reading as
+ * a disagreement. Mirrors forex-ai's web PredictionCard.tsx. */
+function agreeTone<T extends string>(
+  value: T | "neutral" | "unavailable",
+  direction: "long" | "short",
+  bullishValue: T,
+  bearishValue: T
+): keyof typeof STATUS_COLOR {
+  if (value === "unavailable" || value === "neutral") return "neutral";
+  const wanted = direction === "long" ? bullishValue : bearishValue;
+  return value === wanted ? "positive" : "negative";
+}
+
+/** One row of the confirmation-layer breakdown -- always shows the real status,
+ * including "unavailable", never a fabricated agree/disagree. */
+function ConfirmationRow({ label, value, tone }: { label: string; value: string; tone: keyof typeof STATUS_COLOR }) {
+  return (
+    <View style={styles.confirmationRow}>
+      <Text style={styles.confirmationLabel}>{label}</Text>
+      <Text style={[styles.confirmationValue, { color: STATUS_COLOR[tone] }]}>{value}</Text>
+    </View>
+  );
+}
+
+function SignerBBlock({ signal }: { signal: Signal }) {
+  return (
+    <View style={styles.signerBBlock}>
+      <View style={styles.signerBHeaderRow}>
+        <Text style={styles.signerBHeading}>Signer B (independent confirmation)</Text>
+        <Text style={[styles.signerBHeadline, { color: STATUS_COLOR[signal.signerBDirection === "unavailable" ? "neutral" : "positive"] }]}>
+          {signal.signerBDirection === "unavailable" ? "Unavailable" : `${signal.signerBDirection.toUpperCase()} · ${signal.signerBConfidence.toFixed(0)}%`}
+        </Text>
+      </View>
+      <View style={styles.confirmationList}>
+        <ConfirmationRow
+          label="EMA trend"
+          value={signal.signerBEmaTrend === "unavailable" ? "Unavailable" : signal.signerBEmaTrend.charAt(0).toUpperCase() + signal.signerBEmaTrend.slice(1)}
+          tone={agreeTone(signal.signerBEmaTrend, signal.direction, "bullish", "bearish")}
+        />
+        <ConfirmationRow
+          label="Supertrend"
+          value={signal.supertrendTrend === "unavailable" ? "Unavailable" : signal.supertrendTrend.toUpperCase()}
+          tone={agreeTone(signal.supertrendTrend, signal.direction, "up", "down")}
+        />
+        <ConfirmationRow
+          label="RSI divergence"
+          value={
+            signal.rsiDivergence === "unavailable"
+              ? "Unavailable"
+              : signal.rsiDivergence === "none"
+                ? "None"
+                : signal.rsiDivergence.charAt(0).toUpperCase() + signal.rsiDivergence.slice(1)
+          }
+          tone={
+            signal.rsiDivergence === "unavailable" || signal.rsiDivergence === "none"
+              ? "neutral"
+              : agreeTone(signal.rsiDivergence, signal.direction, "bullish", "bearish")
+          }
+        />
+        <ConfirmationRow
+          label="Currency strength"
+          value={signal.usdStrengthStatus === "unavailable" ? "Unavailable" : signal.usdStrengthStatus === "supports" ? "Supports" : "Conflicts"}
+          tone={signal.usdStrengthStatus === "unavailable" ? "neutral" : signal.usdStrengthStatus === "supports" ? "positive" : "negative"}
+        />
+        <ConfirmationRow label="Session" value={signal.session} tone="neutral" />
+        <ConfirmationRow
+          label="News"
+          value={signal.newsStatus === "unavailable" ? "Unavailable" : signal.newsStatus === "clear" ? "Clear" : "High-impact soon"}
+          tone={signal.newsStatus === "unavailable" ? "neutral" : signal.newsStatus === "clear" ? "positive" : "negative"}
+        />
+      </View>
+    </View>
+  );
+}
 
 /**
  * Mirrors forex-ai's web PredictionCard.tsx. Surfaces the SMC engine's real per-candle
@@ -58,8 +141,9 @@ export function PredictionCard({ update }: { update: PredictionUpdate | null }) 
             </View>
           )}
           <Text style={styles.subScore}>
-            Direction {update.evaluation.signal.directionScore.toFixed(0)}% &middot; Entry {update.evaluation.signal.entryScore.toFixed(0)}%
+            SMC (Signer A) · Direction {update.evaluation.signal.directionScore.toFixed(0)}% · Entry {update.evaluation.signal.entryScore.toFixed(0)}%
           </Text>
+          <SignerBBlock signal={update.evaluation.signal} />
         </>
       ) : (
         <Text style={styles.reasonText}>{describeNoTradeReason(update.evaluation.reason)}</Text>
@@ -87,4 +171,12 @@ const styles = StyleSheet.create({
   confluenceChip: { backgroundColor: DashboardColors.surfaceAlt, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   confluenceText: { fontSize: 10, color: DashboardColors.textSecondary },
   subScore: { marginTop: 8, fontSize: 10, color: DashboardColors.textMuted },
+  signerBBlock: { marginTop: 8, borderTopWidth: 1, borderTopColor: DashboardColors.border, paddingTop: 8 },
+  signerBHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  signerBHeading: { fontSize: 10, color: DashboardColors.textMuted },
+  signerBHeadline: { fontSize: 10, fontWeight: "700" },
+  confirmationList: { marginTop: 6, gap: 4 },
+  confirmationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  confirmationLabel: { fontSize: 10, color: DashboardColors.textMuted },
+  confirmationValue: { fontSize: 10, fontWeight: "600" },
 });

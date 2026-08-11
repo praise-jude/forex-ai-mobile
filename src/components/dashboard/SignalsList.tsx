@@ -22,6 +22,9 @@ export const CONFLUENCE_LABEL: Record<Confluence, string> = {
   adx: "ADX",
   candlestick: "Candlestick",
   multi_timeframe: "D1/H4/H1 agreement",
+  supertrend: "Supertrend",
+  currency_strength: "Currency strength",
+  rsi_divergence: "RSI divergence",
 };
 
 const TIER_LABEL: Record<Signal["tier"], string> = {

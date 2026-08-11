@@ -53,7 +53,10 @@ export type Confluence =
   | "market_structure"
   | "adx"
   | "candlestick"
-  | "multi_timeframe";
+  | "multi_timeframe"
+  | "supertrend"
+  | "currency_strength"
+  | "rsi_divergence";
 
 export type ConfidenceTier = "strong_buy" | "buy" | "watch";
 export type SignalSource = "smc" | "tradingview";
@@ -81,6 +84,20 @@ export interface Signal {
    * sourced signals have no zone concept. */
   zoneTop?: number;
   zoneBottom?: number;
+  /** Signer B's own independent directional read (Trend + Momentum + Volatility +
+   * Currency Strength + Session, computed without reference to this signal's own
+   * `direction`, then combined via the backend's decisionMatrix.ts). "unavailable"
+   * only for TradingView-sourced signals. */
+  signerBDirection: "long" | "short" | "neutral" | "unavailable";
+  signerBConfidence: number;
+  signerBEmaTrend: "bullish" | "bearish" | "neutral" | "unavailable";
+  rsiDivergence: "bullish" | "bearish" | "none" | "unavailable";
+  /** Transparent confirmation-layer status, always present and honest about missing
+   * data ("unavailable" is a real, distinct value -- never silently omitted or
+   * fabricated as agreeing). */
+  supertrendTrend: "up" | "down" | "unavailable";
+  usdStrengthStatus: "supports" | "conflicts" | "unavailable";
+  newsStatus: "clear" | "high_impact_soon" | "unavailable";
 }
 
 // Mirrors confidenceScore.ts's DimensionScore -- the two independently-bottlenecked
@@ -100,7 +117,23 @@ export type NoTradeReason =
   | { code: "trend_disagreement"; impliedDirection: "long" | "short"; d1: string; h4: string; h1: string }
   | { code: "weak_trend_adx"; adx: number }
   | { code: "low_volatility"; atr: number; atrAverage: number }
-  | { code: "below_threshold"; direction: DimensionScore; entry: DimensionScore };
+  | { code: "below_threshold"; direction: DimensionScore; entry: DimensionScore }
+  // A decisive hold -- an SMC setup was found and would otherwise have qualified, but a
+  // high-impact release for one of the pair's currencies is imminent. Never fires from
+  // missing/unavailable news data -- only from a genuinely detected upcoming event.
+  | { code: "news_blackout"; impliedDirection: "long" | "short"; event: string; currency: string; minutesUntil: number }
+  // SMC found a qualifying setup, but Signer B's independent read had no real lean
+  // either way -- a genuine tie/insufficient-data read, not a fabricated agreement.
+  | { code: "signer_b_neutral"; impliedDirection: "long" | "short" }
+  // SMC found a qualifying setup, but Signer B's independent read points the opposite
+  // direction -- a genuine conflict between the two independent signers, held rather
+  // than forced.
+  | {
+      code: "signer_conflict";
+      impliedDirection: "long" | "short";
+      signerBDirection: "long" | "short";
+      signerBConfidence: number;
+    };
 
 export type SignalEvaluation = { status: "signal"; signal: Signal } | { status: "no_trade"; reason: NoTradeReason };
 

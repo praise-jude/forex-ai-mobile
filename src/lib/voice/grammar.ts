@@ -24,6 +24,35 @@ export function buildConfirmPhrase(signal: Signal): string {
   return `CONFIRM ${directionWord} ${tickerWord(signal.pair)}`;
 }
 
+/** Short spoken summary of which Signer B (independent confirmation) factors actively
+ * support this signal's direction -- omits factors that are unavailable, neutral, or
+ * conflicting rather than mentioning them negatively here: Signer B's own direction
+ * must already agree with SMC's for a signal to have been produced at all (a real
+ * conflict holds the trade, see the backend's decisionMatrix.ts), so nothing here is
+ * ever a disagreement, just factors that weren't decisive. Mirrors forex-ai's web
+ * lib/voice/grammar.ts. */
+function confirmationSummary(signal: Signal): string {
+  const supporting: string[] = [];
+  if (signal.signerBEmaTrend !== "unavailable" && signal.signerBEmaTrend === (signal.direction === "long" ? "bullish" : "bearish")) {
+    supporting.push("the EMA trend");
+  }
+  if (signal.supertrendTrend !== "unavailable" && signal.supertrendTrend === (signal.direction === "long" ? "up" : "down")) {
+    supporting.push("Supertrend");
+  }
+  if (signal.usdStrengthStatus === "supports") supporting.push("currency strength");
+  if (
+    signal.rsiDivergence !== "unavailable" &&
+    signal.rsiDivergence !== "none" &&
+    signal.rsiDivergence === (signal.direction === "long" ? "bullish" : "bearish")
+  ) {
+    supporting.push("RSI divergence");
+  }
+
+  if (supporting.length === 0) return "";
+  const list = supporting.length === 1 ? supporting[0] : `${supporting.slice(0, -1).join(", ")} and ${supporting[supporting.length - 1]}`;
+  return `${list} ${supporting.length === 1 ? "is" : "are"} confirming the move.`;
+}
+
 export function buildSignalAnnouncement(signal: Signal): string {
   const directionWord = signal.direction === "long" ? "buy" : "sell";
   return [
@@ -32,9 +61,12 @@ export function buildSignalAnnouncement(signal: Signal): string {
     `Entry ${formatPrice(signal.pair, signal.entry)}.`,
     `Stop loss ${formatPrice(signal.pair, signal.stopLoss)}.`,
     `Take profit ${formatPrice(signal.pair, signal.takeProfit)}.`,
+    confirmationSummary(signal),
     `Confidence ${Math.round(signal.confidence)} percent.`,
     `Say "${buildConfirmPhrase(signal)}" to place this trade.`,
-  ].join(" ");
+  ]
+    .filter((part) => part.length > 0)
+    .join(" ");
 }
 
 /** Spoken form of the real current evaluation for a pair, for "analyze X" / "what's the
