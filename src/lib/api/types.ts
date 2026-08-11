@@ -75,6 +75,10 @@ export interface Signal {
   confidence: number;
   directionScore: number;
   entryScore: number;
+  /** Raw ADX/RSI readings at the signal candle. NaN for TradingView-sourced signals
+   * (no candle history to derive them from -- never fabricated). */
+  adx: number;
+  rsi: number;
   tier: ConfidenceTier;
   confluences: Confluence[];
   session: Session;

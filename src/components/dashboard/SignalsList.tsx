@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import type { CardStatus, Confluence, Signal } from "@/lib/api/types";
 import { formatPrice, relativeTime } from "@/lib/api/format";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { TradingRobotBadge } from "./TradingRobotBadge";
+import { DirectionBadge, directionTone } from "./DirectionBadge";
+import { SignerBBreakdown } from "./SignerBBreakdown";
 
 // Exported for reuse by PredictionCard.tsx -- one place a confluence tag's display
 // name is defined, not duplicated between the two components that show them.
@@ -74,17 +77,15 @@ function ExecuteControl({ signal, status, onExecute }: { signal: Signal; status:
 }
 
 function SignalCard({ signal, status, onExecute }: { signal: Signal; status: CardStatus; onExecute: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <TradingRobotBadge direction={signal.direction} />
         <View style={styles.cardHeaderRight}>
           <Text style={styles.pair}>{signal.pair}</Text>
-          <View style={[styles.tierBadge, { backgroundColor: signal.tier === "watch" ? DashboardColors.amberBg : DashboardColors.skyBg }]}>
-            <Text style={[styles.tierText, { color: signal.tier === "watch" ? DashboardColors.amber : DashboardColors.sky }]}>
-              {TIER_LABEL[signal.tier]} · {signal.confidence.toFixed(0)}% · {signal.timeframe}
-            </Text>
-          </View>
+          <DirectionBadge tone={directionTone(signal.direction)} label={`${TIER_LABEL[signal.tier]} · ${signal.confidence.toFixed(0)}% · ${signal.timeframe}`} />
           <Text style={styles.subScore}>
             {signal.source === "tradingview" ? "Source: TradingView" : `Direction ${signal.directionScore.toFixed(0)}% · Entry ${signal.entryScore.toFixed(0)}%`}
           </Text>
@@ -118,6 +119,19 @@ function SignalCard({ signal, status, onExecute }: { signal: Signal; status: Car
             </View>
           ))}
         </View>
+      )}
+
+      {signal.source !== "tradingview" && (
+        <>
+          <Pressable onPress={() => setExpanded((prev) => !prev)} accessibilityRole="button" accessibilityLabel={expanded ? "Hide analysis" : "View analysis"}>
+            <Text style={styles.viewAnalysisText}>{expanded ? "Hide analysis ▲" : "View analysis ▾"}</Text>
+          </Pressable>
+          {expanded && (
+            <View style={styles.signerBBlock}>
+              <SignerBBreakdown signal={signal} />
+            </View>
+          )}
+        </>
       )}
 
       <View style={styles.footerRow}>
@@ -183,8 +197,6 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   cardHeaderRight: { alignItems: "flex-end", gap: 3 },
   pair: { fontSize: 15, fontWeight: "700", color: DashboardColors.textPrimary },
-  tierBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  tierText: { fontSize: 11, fontWeight: "700" },
   subScore: { fontSize: 10, color: DashboardColors.textMuted },
   grid: { flexDirection: "row", marginTop: 10, gap: 10 },
   gridItem: { flex: 1 },
@@ -193,6 +205,8 @@ const styles = StyleSheet.create({
   confluenceRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   confluenceChip: { backgroundColor: DashboardColors.surfaceAlt, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   confluenceText: { fontSize: 10, color: DashboardColors.textSecondary },
+  viewAnalysisText: { marginTop: 10, fontSize: 11, fontWeight: "600", color: DashboardColors.sky },
+  signerBBlock: { marginTop: 8, borderTopWidth: 1, borderTopColor: DashboardColors.border, paddingTop: 8 },
   footerRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
   footerText: { fontSize: 10, color: DashboardColors.textMuted },
   watchNote: { marginTop: 8, fontSize: 11, fontWeight: "600", color: DashboardColors.textMuted },
