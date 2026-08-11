@@ -6,7 +6,11 @@ import { usePolling } from "@/lib/api/usePolling";
 import type { ConnectionStatusResponse, ConnectionStatusValue } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
-const POLL_INTERVAL_MS = 7000;
+// /api/connection-status is a synchronous in-memory read on the backend -- no external
+// I/O, so polling tightly costs nothing server-side. Was 7000ms; 3000ms here (a bit more
+// conservative than the web dashboard's 2000ms, given mobile battery/data constraints)
+// still cuts worst-case staleness by more than half.
+const POLL_INTERVAL_MS = 3000;
 
 const STATUS_LABEL: Record<ConnectionStatusValue, string> = {
   live: "MT5 LIVE",
@@ -26,12 +30,12 @@ export function ConnectionStatusBadge() {
   const { data } = usePolling(() => api.get<ConnectionStatusResponse>("/api/connection-status"), POLL_INTERVAL_MS);
 
   // Ticks independently of the poll so "updated Xs ago" stays reasonably fresh between
-  // fetches -- 5s, not 1s: a second-level countdown here would be imperceptible (unlike
-  // RiskGuardianBanner's cooldown timer, which genuinely benefits from 1s precision),
-  // so there's no reason to run a full extra 1Hz timer for the whole time the dashboard
-  // is on screen just for this label.
+  // fetches -- matched to POLL_INTERVAL_MS (not 1s): a second-level countdown here would
+  // be imperceptible (unlike RiskGuardianBanner's cooldown timer, which genuinely
+  // benefits from 1s precision), so there's no reason to run a faster 1Hz timer for the
+  // whole time the dashboard is on screen just for this label.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 5000);
+    const id = setInterval(() => setNow(Date.now()), POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, []);
 
