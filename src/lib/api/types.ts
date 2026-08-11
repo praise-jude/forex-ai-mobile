@@ -97,11 +97,7 @@ export interface Signal {
    * fabricated as agreeing). */
   supertrendTrend: "up" | "down" | "unavailable";
   usdStrengthStatus: "supports" | "conflicts" | "unavailable";
-  /** Sourced from FRED (St. Louis Fed) -- US-only and day-level granularity, not a
-   * countdown. "high_impact_today" means a curated major USD release is scheduled
-   * for the same UTC calendar day, never a specific time. Never fires for a pair's
-   * non-USD leg (EUR/GBP/JPY/AUD/CAD releases aren't covered by this data source). */
-  newsStatus: "clear" | "high_impact_today" | "unavailable";
+  newsStatus: "clear" | "high_impact_soon" | "unavailable";
 }
 
 // Mirrors confidenceScore.ts's DimensionScore -- the two independently-bottlenecked
@@ -125,7 +121,7 @@ export type NoTradeReason =
   // A decisive hold -- an SMC setup was found and would otherwise have qualified, but a
   // high-impact release for one of the pair's currencies is imminent. Never fires from
   // missing/unavailable news data -- only from a genuinely detected upcoming event.
-  | { code: "news_blackout"; impliedDirection: "long" | "short"; event: string; currency: string }
+  | { code: "news_blackout"; impliedDirection: "long" | "short"; event: string; currency: string; minutesUntil: number }
   // SMC found a qualifying setup, but Signer B's independent read had no real lean
   // either way -- a genuine tie/insufficient-data read, not a fabricated agreement.
   | { code: "signer_b_neutral"; impliedDirection: "long" | "short" }

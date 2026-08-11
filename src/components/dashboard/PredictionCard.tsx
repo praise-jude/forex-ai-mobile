@@ -89,7 +89,7 @@ function SignerBBlock({ signal }: { signal: Signal }) {
         <ConfirmationRow label="Session" value={signal.session} tone="neutral" />
         <ConfirmationRow
           label="News"
-          value={signal.newsStatus === "unavailable" ? "Unavailable" : signal.newsStatus === "clear" ? "Clear" : "High-impact today"}
+          value={signal.newsStatus === "unavailable" ? "Unavailable" : signal.newsStatus === "clear" ? "Clear" : "High-impact soon"}
           tone={signal.newsStatus === "unavailable" ? "neutral" : signal.newsStatus === "clear" ? "positive" : "negative"}
         />
       </View>
