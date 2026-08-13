@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Pair, WatchlistEntry } from "@/lib/api/types";
 import { formatPrice } from "@/lib/api/format";
@@ -20,7 +20,10 @@ function TickPrice({ pair, bid }: { pair: Pair; bid: number | null }) {
   return <Text style={[styles.chipPrice, { color }]}>{bid === null ? "–" : formatPrice(pair, bid)}</Text>;
 }
 
-export function Watchlist({
+// Memoized so an unrelated poll tick (index.tsx's stabilizeWatchlist reuses unchanged
+// entries by reference) doesn't re-render every pair chip -- only a pair whose bid/ask
+// actually moved produces a new `entries` array worth re-rendering for.
+export const Watchlist = memo(function Watchlist({
   entries,
   selectedPair,
   onSelect,
@@ -52,7 +55,7 @@ export function Watchlist({
       </ScrollView>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   heading: {

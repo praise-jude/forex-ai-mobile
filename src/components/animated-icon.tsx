@@ -1,16 +1,30 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useSettings } from '@/lib/api/SettingsContext';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
 export function AnimatedSplashOverlay() {
+  // Previously this overlay hid the native splash and started its own exit animation
+  // purely on layout, independent of whether SettingsContext had finished its
+  // SecureStore reads -- since the dashboard screen itself renders null until
+  // `loaded`, that left a visible blank gap between this overlay finishing its ~600ms
+  // fade and real content appearing. Waiting for `loaded` too closes that gap: the
+  // branded splash stays up until there's actually something to reveal underneath it.
+  const { loaded } = useSettings();
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [laidOut, setLaidOut] = useState(false);
+
+  useEffect(() => {
+    if (!loaded || !laidOut) return;
+    SplashScreen.hideAsync().finally(() => setAnimate(true));
+  }, [loaded, laidOut]);
 
   if (!visible) return null;
 
@@ -47,13 +61,7 @@ export function AnimatedSplashOverlay() {
       {image}
     </Animated.View>
   ) : (
-    <View
-      onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
-      }}
-      style={styles.splashOverlay}>
+    <View onLayout={() => setLaidOut(true)} style={styles.splashOverlay}>
       {image}
     </View>
   );

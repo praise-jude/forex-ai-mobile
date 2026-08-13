@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
+import { usePolledResource } from "@/lib/api/usePolledResource";
 import { useSettings } from "@/lib/api/SettingsContext";
 import { executeSignalRequest, rejectSignalRequest } from "@/lib/api/executionClient";
 import { buildConfirmPhrase } from "@/lib/voice/grammar";
@@ -42,8 +43,28 @@ import { useVoiceAssistant } from "@/lib/voice/useVoiceAssistant";
 
 const SIGNALS_POLL_MS = 5000;
 
-function emptyWatchlist(): WatchlistEntry[] {
-  return PAIRS.map((pair) => ({ pair, bid: null, ask: null, time: null }));
+// A hoisted constant, not a function rebuilding this array every render -- feeds into
+// stabilizeWatchlist below either way (its content-based comparison would catch a
+// freshly-built-but-identical array too), but there's no reason to reallocate it.
+const EMPTY_WATCHLIST: WatchlistEntry[] = PAIRS.map((pair) => ({ pair, bid: null, ask: null, time: null }));
+
+/** Reuses each signal's previous-render object reference by id (mutating `cache` in
+ * place) so SignalCard's React.memo can actually bail out on an unrelated poll tick --
+ * see the doc comment on stableSignalsRef in DashboardScreen. Ids no longer present in
+ * `raw` are pruned from the cache so it can't grow unbounded over a long session. */
+function stabilizeSignals(cache: Map<string, Signal>, raw: Signal[]): Signal[] {
+  const seen = new Set<string>();
+  const stabilized = raw.map((signal) => {
+    seen.add(signal.id);
+    const existing = cache.get(signal.id);
+    if (existing) return existing;
+    cache.set(signal.id, signal);
+    return signal;
+  });
+  for (const id of cache.keys()) {
+    if (!seen.has(id)) cache.delete(id);
+  }
+  return stabilized;
 }
 
 function buildPredictionMap(updates: PredictionUpdate[]): Partial<Record<Pair, Partial<Record<Timeframe, PredictionUpdate>>>> {
@@ -64,6 +85,74 @@ function buildTrendsMap(
   return map;
 }
 
+function sameTrends(a: HigherTimeframeTrends, b: HigherTimeframeTrends): boolean {
+  return a.d1 === b.d1 && a.h4 === b.h4 && a.h1 === b.h1;
+}
+
+/** Unlike signals, a prediction's trends genuinely can change value for the same
+ * pair+timeframe key (D1/H4/H1 bias shifts over time) -- so this reuses the previous
+ * reference only when the actual bullish/bearish/neutral values are unchanged, not just
+ * because the key was seen before. Same purpose as stabilizeSignals: without this,
+ * SignalCard's `trends` prop would be a fresh object every poll tick regardless of
+ * whether the bias actually moved, defeating its memoization. */
+function stabilizeTrendsMap(
+  cache: Map<string, HigherTimeframeTrends>,
+  raw: Partial<Record<Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>>>
+): Partial<Record<Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>>> {
+  const seen = new Set<string>();
+  const stabilized: Partial<Record<Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>>> = {};
+  for (const [pair, byTimeframe] of Object.entries(raw) as [Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>][]) {
+    const stableByTimeframe: Partial<Record<Timeframe, HigherTimeframeTrends>> = {};
+    for (const [timeframe, trends] of Object.entries(byTimeframe) as [Timeframe, HigherTimeframeTrends][]) {
+      const key = `${pair}:${timeframe}`;
+      seen.add(key);
+      const existing = cache.get(key);
+      const stable = existing && sameTrends(existing, trends) ? existing : trends;
+      cache.set(key, stable);
+      stableByTimeframe[timeframe] = stable;
+    }
+    stabilized[pair] = stableByTimeframe;
+  }
+  for (const key of cache.keys()) {
+    if (!seen.has(key)) cache.delete(key);
+  }
+  return stabilized;
+}
+
+interface WatchlistCache {
+  entries: Map<Pair, WatchlistEntry>;
+  // Watchlist itself (not per-row children) is the memoized component, and it receives
+  // this whole array as a single prop -- `.map()` always returns a new array reference
+  // even when every element inside is unchanged, which would defeat that memoization
+  // just as surely as an unstabilized per-item reference would. So the previous
+  // render's OUTPUT array is cached too, and reused whenever every element still
+  // matches it position-for-position.
+  lastOutput: WatchlistEntry[];
+}
+
+/** Same purpose as stabilizeSignals/stabilizeTrendsMap, applied to watchlist rows so
+ * Watchlist's own memoization isn't defeated by a fresh JSON.parse every poll tick when
+ * a given pair's price genuinely hasn't moved. */
+function stabilizeWatchlist(cacheRef: WatchlistCache, raw: WatchlistEntry[]): WatchlistEntry[] {
+  const seen = new Set<Pair>();
+  const stabilized = raw.map((entry) => {
+    seen.add(entry.pair);
+    const existing = cacheRef.entries.get(entry.pair);
+    const stable = existing && existing.bid === entry.bid && existing.ask === entry.ask && existing.time === entry.time ? existing : entry;
+    cacheRef.entries.set(entry.pair, stable);
+    return stable;
+  });
+  for (const pair of cacheRef.entries.keys()) {
+    if (!seen.has(pair)) cacheRef.entries.delete(pair);
+  }
+
+  const { lastOutput } = cacheRef;
+  const unchanged = lastOutput.length === stabilized.length && lastOutput.every((entry, i) => entry === stabilized[i]);
+  if (unchanged) return lastOutput;
+  cacheRef.lastOutput = stabilized;
+  return stabilized;
+}
+
 export default function DashboardScreen() {
   const { isConfigured, loaded, serverUrl, authHeader } = useSettings();
   const api = useApi();
@@ -75,6 +164,15 @@ export default function DashboardScreen() {
 
   const seenSignalIds = useRef<Set<string>>(new Set());
   const firstSnapshot = useRef(true);
+  // Every poll response is a fresh JSON.parse -- even a signal whose data hasn't
+  // changed arrives as a brand-new object every 5s tick, which would defeat
+  // SignalCard's React.memo entirely (its `signal` prop would always look "changed").
+  // A signal's own fields never mutate after creation once published (only new ids get
+  // appended server-side), so it's safe to reuse the previous render's object for any
+  // id seen before, and only treat genuinely new ids as new objects.
+  const stableSignalsRef = useRef<Map<string, Signal>>(new Map());
+  const stableTrendsRef = useRef<Map<string, HigherTimeframeTrends>>(new Map());
+  const stableWatchlistRef = useRef<WatchlistCache>({ entries: new Map(), lastOutput: [] });
 
   const { data: snapshot, error: snapshotError } = usePolling(
     () => api.get<SignalsSnapshot>("/api/signals"),
@@ -90,15 +188,26 @@ export default function DashboardScreen() {
     isConfigured
   );
   // Seeds the proposal card's default "Risk" figure -- the account's actually-configured
-  // riskPerTradePct. EngineModeControl polls the same endpoint independently; both are
-  // cheap, infrequent GETs so no dedup mechanism is needed here (unlike the web app's
-  // usePolledResource, mobile's usePolling is per-hook by design, see its own doc comment).
-  const { data: engineModeData } = usePolling(() => api.get<EngineModeResponse>("/api/engine-mode"), 7000, isConfigured);
+  // riskPerTradePct. EngineModeControl polls the exact same "engine-mode" key --
+  // usePolledResource dedupes them into one shared interval/request instead of two.
+  const { data: engineModeData } = usePolledResource("engine-mode", () => api.get<EngineModeResponse>("/api/engine-mode"), 7000, isConfigured);
 
-  const watchlist = snapshot?.watchlist ?? emptyWatchlist();
-  const signals = snapshot?.signals ?? [];
+  // Stabilization (reusing prior-render object references for unchanged items, so
+  // Watchlist/SignalCard's own memoization isn't defeated by every poll tick's fresh
+  // JSON.parse) mutates cache refs -- React Compiler (enabled for this project, see
+  // app.json) correctly flags that as unsafe directly in the render body, since ref
+  // mutations must be confined to effects/handlers. Done in an effect instead; the one
+  // extra render this costs after each poll tick is not something a phone screen can see.
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>(EMPTY_WATCHLIST);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [trends, setTrends] = useState<Partial<Record<Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>>>>({});
+  useEffect(() => {
+    setWatchlist(stabilizeWatchlist(stableWatchlistRef.current, snapshot?.watchlist ?? EMPTY_WATCHLIST));
+    setSignals(stabilizeSignals(stableSignalsRef.current, snapshot?.signals ?? []));
+    setTrends(stabilizeTrendsMap(stableTrendsRef.current, buildTrendsMap(snapshot?.predictions ?? [])));
+  }, [snapshot]);
+
   const predictions = buildPredictionMap(snapshot?.predictions ?? []);
-  const trends = buildTrendsMap(snapshot?.predictions ?? []);
   const selectedPrediction = predictions[selectedPair]?.[selectedTimeframe] ?? null;
 
   const dismissToast = useCallback((key: string) => {
@@ -125,6 +234,13 @@ export default function DashboardScreen() {
       await rejectSignalRequest(serverUrl, authHeader, signal.id);
     },
     [serverUrl, authHeader]
+  );
+
+  // Stable wrapper for SignalsList's onApprove -- an inline arrow function here would
+  // be a new reference every render, defeating SignalCard's own memoization.
+  const approveSignal = useCallback(
+    (signal: Signal, riskPctOverride: number) => void executeSignal(signal, riskPctOverride),
+    [executeSignal]
   );
 
   const voice = useVoiceAssistant({
@@ -237,8 +353,9 @@ export default function DashboardScreen() {
           manualMode={confirmationMode?.manualMode ?? "confirm"}
           ttlSeconds={confirmationMode?.proposalTtlSeconds ?? 120}
           defaultRiskPct={engineModeData?.riskPerTradePct ?? 1}
-          onApprove={(signal, riskPctOverride) => void executeSignal(signal, riskPctOverride)}
+          onApprove={approveSignal}
           onReject={rejectSignal}
+          loaded={snapshot !== null}
         />
 
         <PositionsList />

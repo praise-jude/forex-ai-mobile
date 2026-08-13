@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useApi } from "@/lib/api/client";
-import { usePolling } from "@/lib/api/usePolling";
+import { usePolledResource } from "@/lib/api/usePolledResource";
 import type { EngineMode, EngineModeResponse } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
@@ -22,7 +22,9 @@ const MODE_COLOR: Record<EngineMode, { bg: string; text: string }> = {
 
 export function EngineModeControl() {
   const api = useApi();
-  const { data, setData } = usePolling(() => api.get<EngineModeResponse>("/api/engine-mode"), POLL_INTERVAL_MS);
+  // Shared with index.tsx, which polls this exact same "engine-mode" key --
+  // usePolledResource dedupes them into a single interval/request instead of two.
+  const { data, setData } = usePolledResource("engine-mode", () => api.get<EngineModeResponse>("/api/engine-mode"), POLL_INTERVAL_MS);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showLiveConfirm, setShowLiveConfirm] = useState(false);
@@ -37,7 +39,7 @@ export function EngineModeControl() {
         setError(json.message ?? "Request failed");
         return;
       }
-      setData((prev) => (prev ? { ...prev, mode: json.mode! } : prev));
+      if (data) setData({ ...data, mode: json.mode });
       setShowLiveConfirm(false);
       setPhraseInput("");
     } catch (err) {

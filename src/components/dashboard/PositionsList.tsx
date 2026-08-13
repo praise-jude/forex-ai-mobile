@@ -46,7 +46,7 @@ export function PositionsList() {
         <Text style={styles.tradesToday}>{data ? `${data.tradesToday} trades today` : ""}</Text>
       </View>
       {!data || data.positions.length === 0 ? (
-        <Text style={styles.empty}>No open positions.</Text>
+        <Text style={styles.empty}>{data ? "No open positions." : "Loading positions…"}</Text>
       ) : (
         <View style={styles.list}>
           {data.positions.map((position) => (

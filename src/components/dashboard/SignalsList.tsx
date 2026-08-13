@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { CardStatus, Confluence, HigherTimeframeTrends, Signal } from "@/lib/api/types";
 import { formatPrice, relativeTime } from "@/lib/api/format";
@@ -118,7 +118,10 @@ function ExecuteControl({
   );
 }
 
-function SignalCard({
+// Memoized so a poll tick that doesn't touch this signal's own data doesn't re-render
+// it -- effective only because every prop from SignalsList's map below is now
+// reference-stable across renders (see IDLE_STATUS and the onApprove/onReject handling).
+const SignalCard = memo(function SignalCard({
   signal,
   status,
   trends,
@@ -134,8 +137,8 @@ function SignalCard({
   manualMode: "signal_only" | "confirm";
   ttlSeconds: number;
   defaultRiskPct: number;
-  onApprove: (riskPctOverride: number) => void;
-  onReject: () => Promise<void>;
+  onApprove: (signal: Signal, riskPctOverride: number) => void;
+  onReject: (signal: Signal) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -208,12 +211,17 @@ function SignalCard({
         manualMode={manualMode}
         ttlSeconds={ttlSeconds}
         defaultRiskPct={defaultRiskPct}
-        onApprove={onApprove}
-        onReject={onReject}
+        onApprove={(riskPctOverride) => onApprove(signal, riskPctOverride)}
+        onReject={() => onReject(signal)}
       />
     </View>
   );
-}
+});
+
+// A fresh `{ state: "idle" }` object literal per signal per render (the old fallback
+// below) would defeat SignalCard's memoization for every signal with no status yet --
+// hoisted so the fallback reference is stable across renders.
+const IDLE_STATUS: CardStatus = { state: "idle" };
 
 export function SignalsList({
   signals,
@@ -224,6 +232,7 @@ export function SignalsList({
   defaultRiskPct,
   onApprove,
   onReject,
+  loaded = true,
 }: {
   signals: Signal[];
   statuses: Record<string, CardStatus>;
@@ -237,25 +246,29 @@ export function SignalsList({
   defaultRiskPct: number;
   onApprove: (signal: Signal, riskPctOverride: number) => void;
   onReject: (signal: Signal) => Promise<void>;
+  /** Whether the initial signals snapshot has resolved yet -- distinguishes "still
+   * loading" from "genuinely zero signals" so the two don't show identical copy.
+   * Defaults true so callers that don't track this see today's behavior unchanged. */
+  loaded?: boolean;
 }) {
   return (
     <View>
       <Text style={styles.heading}>Active signals</Text>
       {signals.length === 0 ? (
-        <Text style={styles.empty}>No signals yet — watching for setups.</Text>
+        <Text style={styles.empty}>{loaded ? "No signals yet — watching for setups." : "Loading signals…"}</Text>
       ) : (
         <View style={styles.list}>
           {signals.map((signal) => (
             <SignalCard
               key={signal.id}
               signal={signal}
-              status={statuses[signal.id] ?? { state: "idle" }}
+              status={statuses[signal.id] ?? IDLE_STATUS}
               trends={trends?.[signal.pair]?.[signal.timeframe]}
               manualMode={manualMode}
               ttlSeconds={ttlSeconds}
               defaultRiskPct={defaultRiskPct}
-              onApprove={(riskPctOverride) => onApprove(signal, riskPctOverride)}
-              onReject={() => onReject(signal)}
+              onApprove={onApprove}
+              onReject={onReject}
             />
           ))}
         </View>
