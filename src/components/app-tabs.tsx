@@ -25,6 +25,11 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="message.fill" md="chat" />
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="journal">
+        <NativeTabs.Trigger.Label>Journal</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="list.bullet.rectangle" md="receipt_long" />
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

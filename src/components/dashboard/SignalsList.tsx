@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import type { CardStatus, Confluence, Signal } from "@/lib/api/types";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { CardStatus, Confluence, HigherTimeframeTrends, Signal } from "@/lib/api/types";
 import { formatPrice, relativeTime } from "@/lib/api/format";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { TradingRobotBadge } from "./TradingRobotBadge";
 import { DirectionBadge, directionTone } from "./DirectionBadge";
 import { SignerBBreakdown } from "./SignerBBreakdown";
+import { TradeProposalCard, describeExecuteResponse } from "./TradeProposalCard";
 
 // Exported for reuse by PredictionCard.tsx -- one place a confluence tag's display
 // name is defined, not duplicated between the two components that show them.
@@ -36,47 +37,106 @@ const TIER_LABEL: Record<Signal["tier"], string> = {
   watch: "Watch",
 };
 
-function ExecuteControl({ signal, status, onExecute }: { signal: Signal; status: CardStatus; onExecute: () => void }) {
+const RESULT_TONE_COLOR: Record<"positive" | "negative" | "neutral", string> = {
+  positive: DashboardColors.emerald,
+  negative: DashboardColors.rose,
+  neutral: DashboardColors.textMuted,
+};
+
+function resultTone(status: string): "positive" | "negative" | "neutral" {
+  if (status === "filled") return "positive";
+  if (status === "duplicate" || status === "confirmation_required") return "neutral";
+  return "negative";
+}
+
+/**
+ * The AI never places a trade on its own -- a signal only ever becomes a Trade Proposal
+ * (see TradeProposalCard) once the user deliberately taps Buy/Sell, and even then
+ * nothing reaches MT5 without a further explicit Approve. In "signal_only" mode there's
+ * no execute affordance at all. RN port of forex-ai's SignalsPanel.tsx ExecuteControl.
+ */
+function ExecuteControl({
+  signal,
+  status,
+  trends,
+  manualMode,
+  ttlSeconds,
+  defaultRiskPct,
+  onApprove,
+  onReject,
+}: {
+  signal: Signal;
+  status: CardStatus;
+  trends: HigherTimeframeTrends | undefined;
+  manualMode: "signal_only" | "confirm";
+  ttlSeconds: number;
+  defaultRiskPct: number;
+  onApprove: (riskPctOverride: number) => void;
+  onReject: () => Promise<void>;
+}) {
+  const [proposalOpen, setProposalOpen] = useState(false);
+
   if (signal.tier === "watch") {
     return <Text style={styles.watchNote}>Below confidence threshold — informational only</Text>;
+  }
+
+  if (status.state === "done") {
+    return (
+      <Text style={[styles.resultText, { color: RESULT_TONE_COLOR[resultTone(status.result.status)] }]}>
+        {describeExecuteResponse(status.result)}
+      </Text>
+    );
+  }
+
+  if (manualMode === "signal_only") {
+    return <Text style={styles.watchNote}>Signal Only mode — nothing executes automatically</Text>;
+  }
+
+  if (proposalOpen) {
+    return (
+      <TradeProposalCard
+        signal={signal}
+        trends={trends}
+        ttlSeconds={ttlSeconds}
+        defaultRiskPct={defaultRiskPct}
+        busy={status.state === "loading"}
+        onApprove={onApprove}
+        onReject={onReject}
+        onDismiss={() => setProposalOpen(false)}
+      />
+    );
   }
 
   const isLong = signal.direction === "long";
   const label = isLong ? "Buy" : "Sell";
   const bg = isLong ? DashboardColors.emeraldStrong : DashboardColors.roseStrong;
 
-  if (status.state === "done") {
-    const { result } = status;
-    switch (result.status) {
-      case "filled":
-        return (
-          <Text style={[styles.resultText, { color: DashboardColors.emerald }]}>
-            Filled @ {formatPrice(signal.pair, result.trade.filledEntry ?? result.trade.requestedEntry)}
-          </Text>
-        );
-      case "rejected":
-        return <Text style={[styles.resultText, { color: DashboardColors.rose }]}>Rejected: {result.trade.rejectReason ?? "unknown reason"}</Text>;
-      case "blocked":
-        return <Text style={[styles.resultText, { color: DashboardColors.amber }]}>Blocked: {result.reason}</Text>;
-      case "skipped_sizing":
-        return <Text style={[styles.resultText, { color: DashboardColors.amber }]}>Skipped: {result.reason}</Text>;
-      case "duplicate":
-        return <Text style={[styles.resultText, { color: DashboardColors.textMuted }]}>Already executed</Text>;
-      case "not_found":
-        return <Text style={[styles.resultText, { color: DashboardColors.rose }]}>Signal expired</Text>;
-      case "network_error":
-        return <Text style={[styles.resultText, { color: DashboardColors.rose }]}>Network error — try again</Text>;
-    }
-  }
-
   return (
-    <Pressable disabled={status.state === "loading"} onPress={onExecute} style={[styles.executeButton, { backgroundColor: bg }]}>
-      {status.state === "loading" ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.executeText}>{label}</Text>}
+    <Pressable onPress={() => setProposalOpen(true)} style={[styles.executeButton, { backgroundColor: bg }]}>
+      <Text style={styles.executeText}>{label}</Text>
     </Pressable>
   );
 }
 
-function SignalCard({ signal, status, onExecute }: { signal: Signal; status: CardStatus; onExecute: () => void }) {
+function SignalCard({
+  signal,
+  status,
+  trends,
+  manualMode,
+  ttlSeconds,
+  defaultRiskPct,
+  onApprove,
+  onReject,
+}: {
+  signal: Signal;
+  status: CardStatus;
+  trends: HigherTimeframeTrends | undefined;
+  manualMode: "signal_only" | "confirm";
+  ttlSeconds: number;
+  defaultRiskPct: number;
+  onApprove: (riskPctOverride: number) => void;
+  onReject: () => Promise<void>;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -141,7 +201,16 @@ function SignalCard({ signal, status, onExecute }: { signal: Signal; status: Car
         <Text style={styles.footerText}>{relativeTime(signal.createdAt)}</Text>
       </View>
 
-      <ExecuteControl signal={signal} status={status} onExecute={onExecute} />
+      <ExecuteControl
+        signal={signal}
+        status={status}
+        trends={trends}
+        manualMode={manualMode}
+        ttlSeconds={ttlSeconds}
+        defaultRiskPct={defaultRiskPct}
+        onApprove={onApprove}
+        onReject={onReject}
+      />
     </View>
   );
 }
@@ -149,11 +218,25 @@ function SignalCard({ signal, status, onExecute }: { signal: Signal; status: Car
 export function SignalsList({
   signals,
   statuses,
-  onExecute,
+  trends,
+  manualMode,
+  ttlSeconds,
+  defaultRiskPct,
+  onApprove,
+  onReject,
 }: {
   signals: Signal[];
   statuses: Record<string, CardStatus>;
-  onExecute: (signal: Signal) => void;
+  /** Per pair/timeframe D1/H4/H1 bias, from the same predictions map Dashboard already
+   * keeps -- optional so a signal without a matching prediction just skips the trend row. */
+  trends?: Partial<Record<Signal["pair"], Partial<Record<Signal["timeframe"], HigherTimeframeTrends>>>>;
+  /** Confirmation Mode's current manual-execution mode -- "signal_only" shows no execute
+   * affordance at all, "confirm" is the default propose-then-approve flow. */
+  manualMode: "signal_only" | "confirm";
+  ttlSeconds: number;
+  defaultRiskPct: number;
+  onApprove: (signal: Signal, riskPctOverride: number) => void;
+  onReject: (signal: Signal) => Promise<void>;
 }) {
   return (
     <View>
@@ -167,7 +250,12 @@ export function SignalsList({
               key={signal.id}
               signal={signal}
               status={statuses[signal.id] ?? { state: "idle" }}
-              onExecute={() => onExecute(signal)}
+              trends={trends?.[signal.pair]?.[signal.timeframe]}
+              manualMode={manualMode}
+              ttlSeconds={ttlSeconds}
+              defaultRiskPct={defaultRiskPct}
+              onApprove={(riskPctOverride) => onApprove(signal, riskPctOverride)}
+              onReject={() => onReject(signal)}
             />
           ))}
         </View>

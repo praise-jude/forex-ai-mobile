@@ -158,6 +158,10 @@ export function buildResultAnnouncement(signal: Signal, result: ExecuteResponse)
       return "That trade has already been submitted -- no second order was placed.";
     case "not_found":
       return "That signal has expired. No trade has been placed.";
+    case "expired":
+      return "That trade proposal expired before it was approved. No trade has been placed.";
+    case "confirmation_required":
+      return "I couldn't confirm that trade. No trade has been placed.";
     case "network_error":
       return "I couldn't reach the server to place that trade. No trade has been placed.";
   }

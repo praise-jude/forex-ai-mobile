@@ -6,11 +6,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { useSettings } from "@/lib/api/SettingsContext";
+import { executeSignalRequest, rejectSignalRequest } from "@/lib/api/executionClient";
+import { buildConfirmPhrase } from "@/lib/voice/grammar";
 import {
   statusFromTrade,
   PAIRS,
   type CardStatus,
-  type ExecuteResponse,
+  type ConfirmationModeResponse,
+  type EngineModeResponse,
+  type HigherTimeframeTrends,
   type Pair,
   type PredictionUpdate,
   type Signal,
@@ -22,6 +26,8 @@ import { DashboardColors } from "@/constants/dashboardColors";
 import { ConnectionStatusBadge } from "@/components/dashboard/ConnectionStatusBadge";
 import { EngineModeControl } from "@/components/dashboard/EngineModeControl";
 import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
+import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
+import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
 import { RiskGuardianBanner } from "@/components/dashboard/RiskGuardianBanner";
 import { Watchlist } from "@/components/dashboard/Watchlist";
 import { PriceChart } from "@/components/dashboard/PriceChart";
@@ -31,6 +37,7 @@ import { SignalsList } from "@/components/dashboard/SignalsList";
 import { PositionsList } from "@/components/dashboard/PositionsList";
 import { SignalToastStack, type ToastEntry } from "@/components/dashboard/SignalToast";
 import { VoiceAssistantPanel } from "@/components/dashboard/VoiceAssistantPanel";
+import { DisclaimerFooter } from "@/components/dashboard/DisclaimerFooter";
 import { useVoiceAssistant } from "@/lib/voice/useVoiceAssistant";
 
 const SIGNALS_POLL_MS = 5000;
@@ -47,8 +54,18 @@ function buildPredictionMap(updates: PredictionUpdate[]): Partial<Record<Pair, P
   return map;
 }
 
+function buildTrendsMap(
+  updates: PredictionUpdate[]
+): Partial<Record<Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>>> {
+  const map: Partial<Record<Pair, Partial<Record<Timeframe, HigherTimeframeTrends>>>> = {};
+  for (const update of updates) {
+    map[update.pair] = { ...map[update.pair], [update.timeframe]: update.trends };
+  }
+  return map;
+}
+
 export default function DashboardScreen() {
-  const { isConfigured, loaded } = useSettings();
+  const { isConfigured, loaded, serverUrl, authHeader } = useSettings();
   const api = useApi();
 
   const [selectedPair, setSelectedPair] = useState<Pair>(PAIRS[0]);
@@ -65,27 +82,49 @@ export default function DashboardScreen() {
     isConfigured
   );
 
+  // Confirmation Mode's own state -- drives whether SignalsList shows an execute
+  // affordance at all ("signal_only") or the propose-then-approve flow ("confirm").
+  const { data: confirmationMode } = usePolling(
+    () => api.get<ConfirmationModeResponse>("/api/confirmation-mode"),
+    15000,
+    isConfigured
+  );
+  // Seeds the proposal card's default "Risk" figure -- the account's actually-configured
+  // riskPerTradePct. EngineModeControl polls the same endpoint independently; both are
+  // cheap, infrequent GETs so no dedup mechanism is needed here (unlike the web app's
+  // usePolledResource, mobile's usePolling is per-hook by design, see its own doc comment).
+  const { data: engineModeData } = usePolling(() => api.get<EngineModeResponse>("/api/engine-mode"), 7000, isConfigured);
+
   const watchlist = snapshot?.watchlist ?? emptyWatchlist();
   const signals = snapshot?.signals ?? [];
   const predictions = buildPredictionMap(snapshot?.predictions ?? []);
+  const trends = buildTrendsMap(snapshot?.predictions ?? []);
   const selectedPrediction = predictions[selectedPair]?.[selectedTimeframe] ?? null;
 
   const dismissToast = useCallback((key: string) => {
     setToasts((prev) => prev.filter((t) => t.key !== key));
   }, []);
 
+  // The same function both SignalsList's Approve button and the voice assistant's
+  // hard-confirm path call -- voice execution is never a separate code path, so it can
+  // never bypass the backend's risk checks. Builds the exact same confirmation phrase
+  // the execute route itself requires (buildConfirmPhrase, shared with voice) so callers
+  // here never need to know about it individually.
   const executeSignal = useCallback(
-    async (signal: Signal) => {
+    async (signal: Signal, riskPctOverride?: number) => {
       setLocalStatuses((prev) => ({ ...prev, [signal.id]: { state: "loading" } }));
-      try {
-        const result = await api.post<ExecuteResponse>(`/api/signals/${signal.id}/execute`);
-        setLocalStatuses((prev) => ({ ...prev, [signal.id]: { state: "done", result } }));
-      } catch {
-        const result: ExecuteResponse = { status: "network_error" };
-        setLocalStatuses((prev) => ({ ...prev, [signal.id]: { state: "done", result } }));
-      }
+      const result = await executeSignalRequest(serverUrl, authHeader, signal.id, buildConfirmPhrase(signal), riskPctOverride);
+      setLocalStatuses((prev) => ({ ...prev, [signal.id]: { state: "done", result } }));
+      return result;
     },
-    [api]
+    [serverUrl, authHeader]
+  );
+
+  const rejectSignal = useCallback(
+    async (signal: Signal) => {
+      await rejectSignalRequest(serverUrl, authHeader, signal.id);
+    },
+    [serverUrl, authHeader]
   );
 
   const voice = useVoiceAssistant({
@@ -171,6 +210,10 @@ export default function DashboardScreen() {
           <EngineModeControl />
           <View style={styles.controlsDivider} />
           <KillSwitchControl account="live" />
+          <View style={styles.controlsDivider} />
+          <EmergencyStopControl account="live" />
+          <View style={styles.controlsDivider} />
+          <ExecutionPolicyControl />
         </View>
 
         <VoiceAssistantPanel {...voice} />
@@ -187,9 +230,20 @@ export default function DashboardScreen() {
           <PriceChart pair={selectedPair} timeframe={selectedTimeframe} prediction={selectedPrediction} />
         </View>
 
-        <SignalsList signals={signals} statuses={localStatuses} onExecute={executeSignal} />
+        <SignalsList
+          signals={signals}
+          statuses={localStatuses}
+          trends={trends}
+          manualMode={confirmationMode?.manualMode ?? "confirm"}
+          ttlSeconds={confirmationMode?.proposalTtlSeconds ?? 120}
+          defaultRiskPct={engineModeData?.riskPerTradePct ?? 1}
+          onApprove={(signal, riskPctOverride) => void executeSignal(signal, riskPctOverride)}
+          onReject={rejectSignal}
+        />
 
         <PositionsList />
+
+        <DisclaimerFooter />
       </ScrollView>
 
       <SignalToastStack toasts={toasts} onDismiss={dismissToast} />

@@ -141,11 +141,32 @@ export type NoTradeReason =
 
 export type SignalEvaluation = { status: "signal"; signal: Signal } | { status: "no_trade"; reason: NoTradeReason };
 
+export type MarketRegime =
+  | "news_driven"
+  | "breakout"
+  | "strong_uptrend"
+  | "strong_downtrend"
+  | "high_volatility"
+  | "low_volatility"
+  | "consolidation"
+  | "range";
+
+export interface HigherTimeframeTrends {
+  d1: "bullish" | "bearish" | "neutral";
+  h4: "bullish" | "bearish" | "neutral";
+  h1: "bullish" | "bearish" | "neutral";
+}
+
 export interface PredictionUpdate {
   pair: Pair;
   timeframe: Timeframe;
   evaluation: SignalEvaluation;
   time: number;
+  // Already present in the backend's JSON response (predictionStore.ts) -- these two
+  // fields were simply never declared on the mobile mirror. Needed by TradeProposalCard
+  // for its D1/H4/H1 trend row, same data the web dashboard already shows.
+  regime: MarketRegime;
+  trends: HigherTimeframeTrends;
 }
 
 export type AccountKey = "live" | "demo";
@@ -220,6 +241,10 @@ export interface RiskStatusResponse {
   consecutiveLosses: number;
   maxConsecutiveLosses: number;
   maxDailyLossPct: number;
+  // The halt/cooldown condition itself has cleared (day rolled over, timer expired), but
+  // DEMO/LIVE auto-execution stays paused until a human deliberately reviews and resumes
+  // it -- mirrors lib/market/riskState.ts's requiresAcknowledgement on the web side.
+  requiresAcknowledgement: boolean;
 }
 
 export type EngineMode = "analysis" | "demo" | "live";
@@ -235,8 +260,27 @@ export interface KillSwitchState {
   envControlled: boolean;
 }
 
+// Mirrors lib/market/confirmationMode.ts on the web side -- "signal_only" shows no
+// execute affordance at all, "confirm" is the default propose-then-approve flow.
+export interface ConfirmationModeResponse {
+  manualMode: "signal_only" | "confirm";
+  proposalTtlSeconds: number;
+}
+
+export interface ExecutionPolicyResponse {
+  minTier: "buy" | "strong_buy";
+  minRiskReward: number;
+}
+
+export interface CloseAllResult {
+  account: AccountKey;
+  closed: string[];
+  failed: { id: string; reason: string }[];
+}
+
 // Mirrors ExecutionResult from executionEngine.ts plus the client-only outcomes, same
-// as lib/market/executionClient.ts on the web side.
+// as lib/market/executionClient.ts on the web side. "expired"/"confirmation_required"
+// are the two Confirmation Mode gate outcomes from the execute route.
 export type ExecuteResponse =
   | { status: "duplicate" }
   | { status: "blocked"; code: string; reason: string }
@@ -244,7 +288,9 @@ export type ExecuteResponse =
   | { status: "filled"; trade: ExecutedTrade }
   | { status: "rejected"; trade: ExecutedTrade }
   | { status: "not_found" }
-  | { status: "network_error" };
+  | { status: "network_error" }
+  | { status: "expired" }
+  | { status: "confirmation_required"; requiredPhrase: string };
 
 export type CardStatus = { state: "idle" } | { state: "loading" } | { state: "done"; result: ExecuteResponse };
 
@@ -252,6 +298,57 @@ export function statusFromTrade(trade: ExecutedTrade): CardStatus | null {
   if (trade.status === "filled") return { state: "done", result: { status: "filled", trade } };
   if (trade.status === "rejected") return { state: "done", result: { status: "rejected", trade } };
   return null;
+}
+
+// --- Trade journal (mirrors forex-ai's lib/market/tradeJournal.ts JSON shapes) ---
+
+export type JournalCloseReason = "stop_loss" | "take_profit" | "invalidation" | "manual" | "other";
+
+// Minimal mirror of SignalContext -- the Journal screen only ever reads
+// setupQuality.total and regime off this, never the rest of the breakdown.
+export interface JournalSignalContext {
+  regime: MarketRegime;
+  setupQuality: { total: number };
+}
+
+export interface JournalEntry {
+  id: string;
+  signalId: string;
+  account: AccountKey;
+  pair: Pair;
+  timeframe: Timeframe | undefined;
+  direction: "long" | "short";
+  entryPrice: number;
+  exitPrice: number;
+  profit: number;
+  riskDollars: number | null;
+  rMultiple: number | null;
+  reason: JournalCloseReason;
+  closedAt: number;
+  context: JournalSignalContext | null;
+}
+
+export interface PerformanceStats {
+  count: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  averageR: number | null;
+  maxDrawdownR: number | null;
+}
+
+export interface SignalFunnelStats {
+  approved: number;
+  rejected: number;
+  expired: number;
+  blocked: number;
+}
+
+export interface JournalResponse {
+  entries: JournalEntry[];
+  stats: PerformanceStats;
+  openCount: number;
+  signalFunnel: SignalFunnelStats;
 }
 
 // --- Push notifications (mirrors forex-ai's lib/market/types.ts) ---
