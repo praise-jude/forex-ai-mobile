@@ -117,6 +117,12 @@ function NotificationSettingsSection() {
         onChange={(v) => setPref("connectionAlerts", v)}
         disabled={disabled}
       />
+      <ToggleRow
+        label="Weekly performance digest"
+        value={prefs?.weeklyDigest ?? true}
+        onChange={(v) => setPref("weeklyDigest", v)}
+        disabled={disabled}
+      />
       <StepperRow
         label="Minimum signal confidence"
         value={prefs?.minConfidence ?? 80}

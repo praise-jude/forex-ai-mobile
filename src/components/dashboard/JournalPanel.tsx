@@ -81,6 +81,59 @@ function SignalFunnelSummary({ funnel }: { funnel: SignalFunnelStats }) {
   );
 }
 
+const SESSION_LABEL: Record<string, string> = {
+  asia: "Asia",
+  london: "London",
+  newyork: "New York",
+  "off-session": "Off-session",
+};
+
+/** Which pairs/sessions performance is actually coming from -- a compact table (not
+ * tiles) since there can be up to 10 rows. Rows sorted by trade count, most-traded
+ * first, so buckets with enough sample size to mean anything surface at the top. RN
+ * port of forex-ai's JournalPanel.tsx BreakdownTable. */
+function BreakdownTable({
+  title,
+  breakdown,
+  labelFor,
+}: {
+  title: string;
+  breakdown: Record<string, PerformanceStats>;
+  labelFor: (key: string) => string;
+}) {
+  const rows = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+  if (rows.length === 0) return null;
+
+  return (
+    <View>
+      <Text style={styles.sectionHeading}>{title}</Text>
+      <View style={styles.breakdownTable}>
+        <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText, styles.breakdownGroupCol]}>Group</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Trades</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Win rate</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Avg R</Text>
+        </View>
+        {rows.map(([key, stats]) => (
+          <View key={key} style={styles.breakdownRow}>
+            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>{labelFor(key)}</Text>
+            <Text style={styles.breakdownCell}>{stats.count}</Text>
+            <Text style={styles.breakdownCell}>{stats.winRate.toFixed(0)}%</Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                { color: stats.averageR === null ? DashboardColors.textMuted : stats.averageR >= 0 ? DashboardColors.emerald : DashboardColors.rose },
+              ]}
+            >
+              {stats.averageR === null ? "—" : `${stats.averageR >= 0 ? "+" : ""}${stats.averageR.toFixed(2)}R`}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function EntryRow({ entry }: { entry: JournalEntry }) {
   const isLong = entry.direction === "long";
   const inProfit = entry.profit >= 0;
@@ -122,6 +175,8 @@ export function JournalPanel() {
     <ScrollView contentContainerStyle={styles.scrollContent}>
       {data && <StatsSummary stats={data.stats} openCount={data.openCount} />}
       {data && <SignalFunnelSummary funnel={data.signalFunnel} />}
+      {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
+      {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
 
       <View>
         <Text style={styles.sectionHeading}>Closed trades</Text>
@@ -172,4 +227,11 @@ const styles = StyleSheet.create({
   entryProfit: { fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"] },
   entryBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   entryMuted: { fontSize: 11, color: DashboardColors.textMuted },
+  breakdownTable: { borderRadius: 10, borderWidth: 1, borderColor: DashboardColors.border, backgroundColor: DashboardColors.surface, overflow: "hidden" },
+  breakdownRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: DashboardColors.border },
+  breakdownHeaderRow: { backgroundColor: DashboardColors.surfaceAlt },
+  breakdownCell: { flex: 1, paddingHorizontal: 10, paddingVertical: 8, fontSize: 11, color: DashboardColors.textSecondary, fontVariant: ["tabular-nums"] },
+  breakdownGroupCol: { flex: 1.4 },
+  breakdownGroupText: { color: DashboardColors.textPrimary, fontWeight: "600" },
+  breakdownHeaderText: { color: DashboardColors.textMuted, fontWeight: "700", textTransform: "uppercase", fontSize: 10 },
 });

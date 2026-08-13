@@ -349,6 +349,8 @@ export interface JournalResponse {
   stats: PerformanceStats;
   openCount: number;
   signalFunnel: SignalFunnelStats;
+  breakdownByPair: Record<string, PerformanceStats>;
+  breakdownBySession: Record<string, PerformanceStats>;
 }
 
 // --- Push notifications (mirrors forex-ai's lib/market/types.ts) ---
@@ -360,6 +362,7 @@ export interface NotificationPrefs {
   tpSl: boolean;
   riskAlerts: boolean;
   connectionAlerts: boolean;
+  weeklyDigest: boolean;
   minConfidence: number;
 }
 
@@ -370,6 +373,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   tpSl: true,
   riskAlerts: true,
   connectionAlerts: true,
+  weeklyDigest: true,
   minConfidence: 80,
 };
 
