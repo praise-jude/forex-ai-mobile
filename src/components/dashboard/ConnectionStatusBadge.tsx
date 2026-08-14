@@ -39,7 +39,18 @@ export function ConnectionStatusBadge() {
     return () => clearInterval(id);
   }, []);
 
-  if (!data) return null;
+  // Before the first poll resolves this is "we don't know yet", not "disconnected" --
+  // a distinct, honest placeholder rather than silently rendering nothing (which read
+  // as the header having a missing/broken widget for however long the first request
+  // takes) or guessing at a real status.
+  if (!data) {
+    return (
+      <View style={styles.row}>
+        <View style={[styles.dot, styles.dotUnknown]} />
+        <Text style={styles.label}>Connecting…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.row}>
@@ -53,6 +64,7 @@ export function ConnectionStatusBadge() {
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  dotUnknown: { backgroundColor: DashboardColors.textMuted },
   label: { color: DashboardColors.textSecondary, fontSize: 12, fontWeight: "600" },
   ago: { color: DashboardColors.textMuted, fontSize: 12 },
 });

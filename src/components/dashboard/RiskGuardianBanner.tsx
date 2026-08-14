@@ -8,8 +8,10 @@ import { DashboardColors } from "@/constants/dashboardColors";
 
 const POLL_INTERVAL_MS = 7000;
 
-/** Renders nothing when nothing is active -- this is a guardian-tripped alert, not a
- * status-quo indicator (ConnectionStatusBadge/EngineModeControl already cover normal state). */
+/** Renders nothing once loaded if nothing is active -- this is a guardian-tripped
+ * alert, not a status-quo indicator (ConnectionStatusBadge/EngineModeControl already
+ * cover normal state). Shows a neutral loading placeholder only until the first poll
+ * resolves, see below. */
 export function RiskGuardianBanner() {
   const api = useApi();
   const { data, setData } = usePolling(() => api.get<RiskStatusResponse>("/api/risk-status"), POLL_INTERVAL_MS);
@@ -33,7 +35,17 @@ export function RiskGuardianBanner() {
     return () => clearInterval(id);
   }, []);
 
-  if (!data) return null;
+  // Before the first poll resolves, show a brief neutral placeholder rather than
+  // silently nothing -- distinct from the later `return null` (loaded, nothing active),
+  // which is correctly identical to this in appearance except for the label, since
+  // "no alert to show" is a real state, not a loading gap, once data has arrived.
+  if (!data) {
+    return (
+      <View style={[styles.banner, styles.loadingBanner]}>
+        <Text style={styles.loadingText}>Checking risk status…</Text>
+      </View>
+    );
+  }
 
   const cooldownActive = data.cooldownUntil !== null && data.cooldownUntil > now;
 
@@ -87,6 +99,8 @@ const styles = StyleSheet.create({
   banner: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10, gap: 2 },
   title: { fontSize: 13, fontWeight: "800" },
   body: { fontSize: 13, color: DashboardColors.textPrimary },
+  loadingBanner: { borderColor: DashboardColors.border, backgroundColor: DashboardColors.surface },
+  loadingText: { fontSize: 12, color: DashboardColors.textMuted },
   ackBanner: {
     borderColor: "#b45309",
     backgroundColor: "rgba(180,83,9,0.25)",
