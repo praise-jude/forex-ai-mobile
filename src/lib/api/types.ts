@@ -137,7 +137,11 @@ export type NoTradeReason =
       impliedDirection: "long" | "short";
       signerBDirection: "long" | "short";
       signerBConfidence: number;
-    };
+    }
+  // Everything else passed but the most recently closed 5-minute candle didn't confirm
+  // the setup's own direction -- an on-demand REST check at decision time, never a live
+  // subscription (see forex-ai's m5Confirmation.ts).
+  | { code: "m5_not_confirmed"; impliedDirection: "long" | "short" };
 
 export type SignalEvaluation = { status: "signal"; signal: Signal } | { status: "no_trade"; reason: NoTradeReason };
 
