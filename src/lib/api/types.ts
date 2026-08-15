@@ -381,6 +381,86 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   minConfidence: 80,
 };
 
+// --- System health (mirrors forex-ai's app/api/system-health/route.ts) ---
+
+export interface SystemHealthPair {
+  pair: Pair;
+  specAvailable: boolean;
+  tradeMode: string | null;
+  stopsLevel: number | null;
+  priceAvailable: boolean;
+  stale: boolean;
+}
+
+export interface SystemHealthAccount {
+  account: AccountKey;
+  connectionStatus: ConnectionStatusResponse;
+  accountInfo: { balance: number; equity: number; freeMargin: number; margin: number; tradeAllowed: boolean } | null;
+  pairs: SystemHealthPair[];
+}
+
+export interface SystemHealthResponse {
+  live: SystemHealthAccount;
+  demo: SystemHealthAccount | null;
+}
+
+// --- Backtesting (mirrors forex-ai's lib/market/backtest/backtestRunner.ts) ---
+
+// Only these three timeframes are ever actually evaluated by the live signal engine --
+// mirrors backtest/constants.ts's own BACKTEST_TIMEFRAMES.
+export const BACKTEST_TIMEFRAMES: Timeframe[] = ["15m", "30m", "1h"];
+export const MAX_LOOKBACK_DAYS = 180;
+export const DEFAULT_LOOKBACK_DAYS = 60;
+
+export interface BacktestRequest {
+  pairs: Pair[];
+  timeframe: Timeframe;
+  lookbackDays?: number;
+  realistic?: boolean;
+}
+
+export type BacktestStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export interface BacktestProgress {
+  pairsDone: number;
+  pairsTotal: number;
+  barsEvaluated: number;
+  barsTotal: number;
+}
+
+export interface ScoreRangeBucket {
+  range: string;
+  count: number;
+  winRate: number;
+  averageR: number | null;
+}
+
+export interface BacktestResult {
+  stats: PerformanceStats;
+  profitFactor: number | null;
+  sharpeRatio: number | null;
+  streaks: { maxConsecutiveWins: number; maxConsecutiveLosses: number };
+  scoreRangeBreakdown: ScoreRangeBucket[];
+  openAtWindowEnd: number;
+  perPair: { pair: Pair; stats: PerformanceStats }[];
+  entries: JournalEntry[];
+}
+
+export interface BacktestJob {
+  id: string;
+  createdAt: number;
+  request: BacktestRequest;
+  status: BacktestStatus;
+  progress: BacktestProgress;
+  error?: string;
+  result: BacktestResult | null;
+}
+
+export interface BacktestListResponse {
+  current: BacktestJob | null;
+  history: BacktestJob[];
+}
+
 export type DevicePlatform = "ios" | "android" | "web";
 
 export interface PushDevice {

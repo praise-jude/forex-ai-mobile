@@ -9,6 +9,11 @@ import type { ConnectionStatusResponse, NotificationPrefs } from "@/lib/api/type
 import { usePush } from "@/lib/push/PushContext";
 import { useVoiceSettings, type VoiceSettings } from "@/lib/voice/VoiceSettingsContext";
 import { DashboardColors } from "@/constants/dashboardColors";
+import { EngineModeControl } from "@/components/dashboard/EngineModeControl";
+import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
+import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
+import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
+import { SystemHealthCard } from "@/components/dashboard/SystemHealthCard";
 
 type TestState = { state: "idle" } | { state: "testing" } | { state: "ok" } | { state: "error"; message: string };
 
@@ -132,6 +137,24 @@ function NotificationSettingsSection() {
         onIncrement={() => setPref("minConfidence", Math.min(100, (prefs?.minConfidence ?? 80) + 5))}
         disabled={disabled}
       />
+    </View>
+  );
+}
+
+/** Mirrors the web dashboard's /settings page order (system health, then live controls)
+ * -- moved here from the Dashboard tab so Dashboard stays focused on live trading while
+ * these operational controls live alongside the rest of the account/risk configuration. */
+function TradingControlsSection() {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Live controls</Text>
+      <EngineModeControl />
+      <View style={styles.controlsDivider} />
+      <KillSwitchControl account="live" />
+      <View style={styles.controlsDivider} />
+      <EmergencyStopControl account="live" />
+      <View style={styles.controlsDivider} />
+      <ExecutionPolicyControl />
     </View>
   );
 }
@@ -321,6 +344,8 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
+        {isConfigured && <SystemHealthCard />}
+        {isConfigured && <TradingControlsSection />}
         {isConfigured && <NotificationSettingsSection />}
         <VoiceSettingsSection />
       </ScrollView>
@@ -383,6 +408,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: DashboardColors.textPrimary, marginBottom: 6 },
+  controlsDivider: { height: 1, backgroundColor: DashboardColors.border, marginVertical: 12 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   statusText: { fontSize: 12, color: DashboardColors.textSecondary },
   retryLink: { fontSize: 12, fontWeight: "700", color: DashboardColors.sky },

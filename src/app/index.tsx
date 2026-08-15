@@ -25,10 +25,6 @@ import {
 } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ConnectionStatusBadge } from "@/components/dashboard/ConnectionStatusBadge";
-import { EngineModeControl } from "@/components/dashboard/EngineModeControl";
-import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
-import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
-import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
 import { RiskGuardianBanner } from "@/components/dashboard/RiskGuardianBanner";
 import { Watchlist } from "@/components/dashboard/Watchlist";
 import { PriceChart } from "@/components/dashboard/PriceChart";
@@ -322,16 +318,6 @@ export default function DashboardScreen() {
 
         <RiskGuardianBanner />
 
-        <View style={styles.card}>
-          <EngineModeControl />
-          <View style={styles.controlsDivider} />
-          <KillSwitchControl account="live" />
-          <View style={styles.controlsDivider} />
-          <EmergencyStopControl account="live" />
-          <View style={styles.controlsDivider} />
-          <ExecutionPolicyControl />
-        </View>
-
         <VoiceAssistantPanel {...voice} />
 
         <Watchlist entries={watchlist} selectedPair={selectedPair} onSelect={setSelectedPair} />
@@ -389,7 +375,6 @@ const styles = StyleSheet.create({
     backgroundColor: DashboardColors.surface,
     padding: 14,
   },
-  controlsDivider: { height: 1, backgroundColor: DashboardColors.border, marginVertical: 12 },
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: "800", color: DashboardColors.textPrimary },
   emptyBody: { fontSize: 13, color: DashboardColors.textSecondary, textAlign: "center" },
