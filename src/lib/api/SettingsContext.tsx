@@ -7,7 +7,7 @@ const PASSWORD_KEY = "forexai.password";
 
 // Ships pointed at the deployed dashboard by default -- the password is left blank
 // since it's a secret the operator sets per-deployment, never something to hardcode here.
-const DEFAULT_SERVER_URL = "https://forex-ai-production-1408.up.railway.app";
+const DEFAULT_SERVER_URL = "https://forex-ai.up.railway.app";
 
 interface SettingsState {
   serverUrl: string;

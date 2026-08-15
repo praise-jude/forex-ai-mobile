@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Clipboard from "expo-clipboard";
 
 import { useSettings } from "@/lib/api/SettingsContext";
 import { ApiError, useApi } from "@/lib/api/client";
@@ -185,13 +186,36 @@ function VoiceSettingsSection() {
 }
 
 export default function SettingsScreen() {
-  const { serverUrl, password, isConfigured, setServerUrl, setPassword } = useSettings();
+  const { serverUrl, password, loaded, isConfigured, setServerUrl, setPassword } = useSettings();
   const api = useApi();
 
   const [urlInput, setUrlInput] = useState(serverUrl);
   const [passwordInput, setPasswordInput] = useState(password);
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<TestState>({ state: "idle" });
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // urlInput/passwordInput are seeded from context once, at first render -- but the
+  // real saved values only arrive later, from SettingsContext's own async SecureStore
+  // read (see its useEffect). Without this, the inputs are stuck showing whatever
+  // serverUrl/password happened to be at the very first render (the hardcoded default
+  // and an empty string) even after the real saved values load a moment later -- this
+  // is exactly what made the server URL look "stuck" on the wrong value and the
+  // password look blank instead of the one already saved. Keyed on `loaded` alone (not
+  // serverUrl/password directly) so it fires exactly once, when the async load
+  // resolves, and never again -- it must not re-fire on every keystroke and fight the
+  // user's own in-progress edits.
+  /* eslint-disable react-hooks/set-state-in-effect -- seeding local form state from an
+     async-loaded external source (SecureStore, via context) once, not state derivable
+     from render. */
+  useEffect(() => {
+    if (!loaded) return;
+    setUrlInput(serverUrl);
+    setPasswordInput(password);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately only `loaded`, see comment above
+  }, [loaded]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function save() {
     await Promise.all([setServerUrl(urlInput), setPassword(passwordInput)]);
@@ -239,16 +263,39 @@ export default function SettingsScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Dashboard password</Text>
-          <TextInput
-            value={passwordInput}
-            onChangeText={setPasswordInput}
-            placeholder="DASHBOARD_ACCESS_PASSWORD"
-            placeholderTextColor={DashboardColors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            style={styles.input}
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              value={passwordInput}
+              onChangeText={setPasswordInput}
+              placeholder="DASHBOARD_ACCESS_PASSWORD"
+              placeholderTextColor={DashboardColors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry={!passwordVisible}
+              style={[styles.input, styles.passwordInput]}
+            />
+            <Pressable
+              onPress={() => setPasswordVisible((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+              style={styles.iconButton}
+            >
+              <Text style={styles.iconButtonText}>{passwordVisible ? "Hide" : "Show"}</Text>
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                if (!passwordInput) return;
+                await Clipboard.setStringAsync(passwordInput);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Copy password"
+              style={styles.iconButton}
+            >
+              <Text style={styles.iconButtonText}>{copied ? "Copied ✓" : "Copy"}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.actions}>
@@ -298,6 +345,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
   },
+  passwordRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  passwordInput: { flex: 1 },
+  iconButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: DashboardColors.border,
+    backgroundColor: DashboardColors.surfaceAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  iconButtonText: { color: DashboardColors.textPrimary, fontWeight: "700", fontSize: 12 },
   actions: { flexDirection: "row", gap: 10 },
   saveButton: { flex: 1, borderRadius: 10, backgroundColor: DashboardColors.sky, paddingVertical: 12, alignItems: "center" },
   saveButtonText: { color: "#04202f", fontWeight: "800", fontSize: 14 },
