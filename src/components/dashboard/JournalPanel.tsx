@@ -6,6 +6,7 @@ import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
 import type { ConfluenceBreakdownBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats, SlippageStats } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
+import { ProgressBar } from "./ProgressBar";
 
 // Mirrors forex-ai's tradeJournal.ts DEFAULT_CONFLUENCE_MIN_SAMPLES -- a display label
 // only; the server is the actual source of truth for each bucket's "ok"/"insufficient_data" status.
@@ -379,9 +380,9 @@ function ConfluenceBreakdownTable({ breakdown }: { breakdown: ConfluenceBreakdow
             </Text>
             <Text style={styles.breakdownCell}>{bucket.sampleSize}</Text>
             {bucket.status === "insufficient_data" ? (
-              <Text style={[styles.breakdownCell, styles.confluenceInsufficient, styles.breakdownSpanTwo]}>
-                Needs {CONFLUENCE_MIN_SAMPLES}, have {bucket.sampleSize}
-              </Text>
+              <View style={[styles.breakdownCell, styles.breakdownSpanTwo]}>
+                <ProgressBar value={bucket.sampleSize} max={CONFLUENCE_MIN_SAMPLES} label={`${bucket.sampleSize} of ${CONFLUENCE_MIN_SAMPLES}`} />
+              </View>
             ) : (
               <>
                 <Text style={styles.breakdownCell}>{bucket.winRate!.toFixed(0)}%</Text>
@@ -510,7 +511,6 @@ const styles = StyleSheet.create({
   breakdownGroupText: { color: DashboardColors.textPrimary, fontWeight: "600" },
   breakdownHeaderText: { color: DashboardColors.textMuted, fontWeight: "700", textTransform: "uppercase", fontSize: 10 },
   confluenceHint: { fontSize: 11, color: DashboardColors.textMuted, lineHeight: 15, marginBottom: 8 },
-  confluenceInsufficient: { color: DashboardColors.amber },
   breakdownSpanTwo: { flex: 2 },
   equityHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 },
   equityHeaderValue: { fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"] },

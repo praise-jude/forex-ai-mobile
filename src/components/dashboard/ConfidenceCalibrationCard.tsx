@@ -3,6 +3,7 @@ import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import type { CalibrationStatus, DimensionTier, JournalResponse, SignerBCalibrationBucket } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
+import { ProgressBar } from "./ProgressBar";
 
 // Trades close on the order of minutes to hours, not seconds -- matches the Journal
 // screen's own poll interval for the same /api/trade-journal endpoint.
@@ -41,9 +42,7 @@ function CalibrationRow({ label, bucket, minSamples }: { label: string; bucket: 
         <Text style={styles.sampleCount}>{bucket.sampleSize} closed trades</Text>
       </View>
       {bucket.status === "insufficient_data" ? (
-        <Text style={styles.insufficientText}>
-          Insufficient data — needs {minSamples}, have {bucket.sampleSize}.
-        </Text>
+        <ProgressBar value={bucket.sampleSize} max={minSamples} label={`${bucket.sampleSize} of ${minSamples} closed trades`} />
       ) : (
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -118,7 +117,6 @@ const styles = StyleSheet.create({
   rowHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   tierLabel: { fontSize: 13, fontWeight: "700", color: DashboardColors.textPrimary },
   sampleCount: { fontSize: 11, color: DashboardColors.textMuted },
-  insufficientText: { fontSize: 12, color: DashboardColors.amber, lineHeight: 16 },
   statsRow: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   statItem: { gap: 1 },
   statLabel: { fontSize: 10, color: DashboardColors.textMuted },
