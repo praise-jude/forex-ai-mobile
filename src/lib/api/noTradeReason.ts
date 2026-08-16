@@ -1,4 +1,17 @@
-import type { Confluence, NoTradeReason } from "./types";
+import type { Confluence, MarketRegime, NoTradeReason } from "./types";
+
+// Mirrors forex-ai's lib/market/noTradeReason.ts REGIME_LABEL -- exported so any
+// regime badge (e.g. the Signal Diagnostics card) uses this exact wording.
+export const REGIME_LABEL: Record<MarketRegime, string> = {
+  news_driven: "News-driven",
+  breakout: "Breakout",
+  strong_uptrend: "Strong uptrend",
+  strong_downtrend: "Strong downtrend",
+  high_volatility: "High volatility",
+  low_volatility: "Low volatility",
+  consolidation: "Consolidation",
+  range: "Range",
+};
 
 // Mirrors forex-ai's lib/market/noTradeReason.ts. Only the tags scoreDirection()/
 // scoreEntry() can ever produce -- used to describe what's *missing* by
@@ -32,7 +45,12 @@ function joinList(items: string[]): string {
  * real gate/score data the backend already computed -- never a canned placeholder.
  * Shared by the prediction card and voice, so the wording matches everywhere.
  */
-export function describeNoTradeReason(reason: NoTradeReason): string {
+export function describeNoTradeReason(reason: NoTradeReason, regime?: MarketRegime): string {
+  const prefix = regime ? `Market regime: ${REGIME_LABEL[regime]}. ` : "";
+  return prefix + describeReason(reason);
+}
+
+function describeReason(reason: NoTradeReason): string {
   switch (reason.code) {
     case "outside_killzone":
       return "Outside the London/New York killzone -- the SMC engine only evaluates setups during active institutional trading sessions.";

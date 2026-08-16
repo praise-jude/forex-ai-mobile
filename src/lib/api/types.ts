@@ -529,6 +529,34 @@ export interface BacktestListResponse {
   history: BacktestJob[];
 }
 
+// --- Risk & execution config (mirrors forex-ai's lib/market/executionConfig.ts) ---
+
+export interface ExecutionConfig {
+  riskPerTradePct: number;
+  maxConcurrentPositions: number;
+  maxCorrelatedPositions: number;
+  maxDailyLossPct: number;
+  maxTradesPerDay: number;
+  maxConsecutiveLosses: number;
+  cooldownMinutes: number;
+  maxSpreadFractionOfStop: number;
+  breakEvenTriggerR: number;
+  trailingArmTriggerR: number;
+  trailingDistanceFractionOfStop: number;
+  positionManagementEnabled: boolean;
+  partialCloseEnabled: boolean;
+  partialCloseFraction: number;
+  m5ConfirmationEnabled: boolean;
+  confidenceSizingEnabled: boolean;
+  riskMultiplierBuy: number;
+  riskMultiplierStrongBuy: number;
+}
+
+export interface ExecutionConfigResponse {
+  live: ExecutionConfig;
+  demo: ExecutionConfig | null;
+}
+
 export type DevicePlatform = "ios" | "android" | "web";
 
 export interface PushDevice {

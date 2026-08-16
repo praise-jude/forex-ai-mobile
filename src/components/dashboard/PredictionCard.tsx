@@ -8,7 +8,7 @@ import { CONFLUENCE_LABEL } from "./SignalsList";
 import { DirectionBadge, type BadgeTone } from "./DirectionBadge";
 import { SignerBBreakdown } from "./SignerBBreakdown";
 
-const HEADLINE_TONE: Record<PredictionHeadline, BadgeTone> = {
+export const HEADLINE_TONE: Record<PredictionHeadline, BadgeTone> = {
   "STRONG BUY": "positive",
   BUY: "positive",
   NEUTRAL: "neutral",
