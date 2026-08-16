@@ -383,6 +383,9 @@ export interface JournalResponse {
   signalFunnel: SignalFunnelStats;
   breakdownByPair: Record<string, PerformanceStats>;
   breakdownBySession: Record<string, PerformanceStats>;
+  /** "Which market regime is my SMC strategy actually working in" -- effectively
+   * SMC-only (context is only ever recorded for internally-generated SMC signals). */
+  breakdownByRegime: Record<string, PerformanceStats>;
   breakdownByConfluence: ConfluenceBreakdownBucket[];
   slippage: SlippageStats;
   slippageByPair: Record<string, SlippageStats>;

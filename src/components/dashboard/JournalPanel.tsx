@@ -94,6 +94,17 @@ const SESSION_LABEL: Record<string, string> = {
   "off-session": "Off-session",
 };
 
+const REGIME_LABEL: Record<string, string> = {
+  news_driven: "News-driven",
+  breakout: "Breakout",
+  strong_uptrend: "Strong uptrend",
+  strong_downtrend: "Strong downtrend",
+  high_volatility: "High volatility",
+  low_volatility: "Low volatility",
+  consolidation: "Consolidation",
+  range: "Range",
+};
+
 /** Which pairs/sessions performance is actually coming from -- a compact table (not
  * tiles) since there can be up to 10 rows. Rows sorted by trade count, most-traded
  * first, so buckets with enough sample size to mean anything surface at the top. RN
@@ -435,6 +446,9 @@ export function JournalPanel() {
       {data && <SignalFunnelSummary funnel={data.signalFunnel} />}
       {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
       {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
+      {data && (
+        <BreakdownTable title="Performance by market regime (SMC only)" breakdown={data.breakdownByRegime} labelFor={(key) => REGIME_LABEL[key] ?? key} />
+      )}
       {data && <ConfluenceBreakdownTable breakdown={data.breakdownByConfluence} />}
       {data && <SlippageSummary stats={data.slippage} />}
       {data && <SlippageBreakdownTable breakdown={data.slippageByPair} />}
