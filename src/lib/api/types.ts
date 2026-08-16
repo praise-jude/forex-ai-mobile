@@ -557,6 +557,21 @@ export interface ExecutionConfigResponse {
   demo: ExecutionConfig | null;
 }
 
+// --- Pair correlation (mirrors forex-ai's lib/market/rollingCorrelation.ts) ---
+
+export interface CorrelationEntry {
+  pairA: Pair;
+  pairB: Pair;
+  correlation: number;
+  sampleSize: number;
+}
+
+export interface CorrelationResponse {
+  entries: CorrelationEntry[];
+  computedAtAgeMs: number | null;
+  threshold: number;
+}
+
 export type DevicePlatform = "ios" | "android" | "web";
 
 export interface PushDevice {

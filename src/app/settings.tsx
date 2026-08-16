@@ -16,6 +16,7 @@ import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyCo
 import { SystemHealthCard } from "@/components/dashboard/SystemHealthCard";
 import { ConfidenceCalibrationCard } from "@/components/dashboard/ConfidenceCalibrationCard";
 import { ExecutionConfigCard } from "@/components/dashboard/ExecutionConfigCard";
+import { CorrelationCard } from "@/components/dashboard/CorrelationCard";
 import { SignalDiagnosticsCard } from "@/components/dashboard/SignalDiagnosticsCard";
 
 type TestState = { state: "idle" } | { state: "testing" } | { state: "ok" } | { state: "error"; message: string };
@@ -350,6 +351,7 @@ export default function SettingsScreen() {
         {isConfigured && <SystemHealthCard />}
         {isConfigured && <TradingControlsSection />}
         {isConfigured && <ExecutionConfigCard />}
+        {isConfigured && <CorrelationCard />}
         {isConfigured && <ConfidenceCalibrationCard />}
         {isConfigured && <NotificationSettingsSection />}
         <VoiceSettingsSection />
