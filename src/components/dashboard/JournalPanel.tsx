@@ -1,4 +1,6 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import Svg, { Circle, Line, Path } from "react-native-svg";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
@@ -138,6 +140,116 @@ function BreakdownTable({
   );
 }
 
+interface EquityPoint {
+  time: number;
+  cumulativeR: number;
+}
+
+/** Chronological cumulative R across every closed trade with a computed rMultiple --
+ * mirrors forex-ai's JournalPanel.tsx buildEquityCurve. */
+function buildEquityCurve(entries: JournalEntry[]): EquityPoint[] {
+  const withR = entries
+    .filter((e): e is JournalEntry & { rMultiple: number } => e.rMultiple !== null)
+    .slice()
+    .sort((a, b) => a.closedAt - b.closedAt);
+
+  let cumulative = 0;
+  return withR.map((e) => {
+    cumulative += e.rMultiple;
+    return { time: e.closedAt, cumulativeR: cumulative };
+  });
+}
+
+const EQUITY_CHART_HEIGHT = 140;
+
+/** Static (no touch-scrub) -- matches this file's own PriceChart.tsx precedent, the
+ * only other hand-rolled SVG chart in this app, which is also static. Every value here
+ * is already direct-labeled (the end point), so nothing is gated behind an interaction
+ * this component doesn't have. */
+function EquityCurveSvg({ points, width, height, color }: { points: EquityPoint[]; width: number; height: number; color: string }) {
+  const padding = { top: 10, bottom: 10, left: 4, right: 46 };
+  const plotWidth = Math.max(width - padding.left - padding.right, 1);
+  const plotHeight = Math.max(height - padding.top - padding.bottom, 1);
+
+  const minTime = points[0].time;
+  const maxTime = points[points.length - 1].time;
+  const timeRange = Math.max(maxTime - minTime, 1);
+  const values = points.map((p) => p.cumulativeR);
+  const minR = Math.min(0, ...values);
+  const maxR = Math.max(0, ...values);
+  const rRange = Math.max(maxR - minR, 1e-6);
+
+  function x(time: number): number {
+    return padding.left + ((time - minTime) / timeRange) * plotWidth;
+  }
+  function y(value: number): number {
+    return padding.top + (1 - (value - minR) / rRange) * plotHeight;
+  }
+
+  const last = points[points.length - 1];
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.time).toFixed(1)},${y(p.cumulativeR).toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L${x(last.time).toFixed(1)},${y(0).toFixed(1)} L${x(points[0].time).toFixed(1)},${y(0).toFixed(1)} Z`;
+
+  return (
+    <View style={[styles.equitySvgWrap, { width, height }]}>
+      <Svg width={width} height={height}>
+        <Line x1={padding.left} x2={width - padding.right} y1={y(0)} y2={y(0)} stroke={DashboardColors.border} strokeWidth={1} />
+        <Path d={areaPath} fill={color} fillOpacity={0.1} stroke="none" />
+        <Path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <Circle cx={x(last.time)} cy={y(last.cumulativeR)} r={4} fill={color} stroke={DashboardColors.surface} strokeWidth={2} />
+      </Svg>
+      <Text
+        style={[
+          styles.equityEndLabel,
+          { left: x(last.time) + 7, top: y(last.cumulativeR) - 7, color },
+        ]}
+      >
+        {last.cumulativeR >= 0 ? "+" : ""}
+        {last.cumulativeR.toFixed(1)}R
+      </Text>
+    </View>
+  );
+}
+
+/** RN port of forex-ai's JournalPanel.tsx EquityCurveChart -- the one "is this actually
+ * working over time" view; everything else in this screen is a table or a tile. */
+function EquityCurveChart({ entries }: { entries: JournalEntry[] }) {
+  const [width, setWidth] = useState(0);
+  const points = useMemo(() => buildEquityCurve(entries), [entries]);
+
+  function onLayout(e: LayoutChangeEvent) {
+    // equityBox's own 10px horizontal padding is inside the measured layout width (RN's
+    // border-box-equivalent), so it must be subtracted here -- otherwise the SVG (given
+    // this full width) would render past the box's padded content area.
+    setWidth(Math.max(e.nativeEvent.layout.width - 20, 0));
+  }
+
+  const last = points[points.length - 1];
+  const positive = last ? last.cumulativeR >= 0 : true;
+  const color = positive ? DashboardColors.emerald : DashboardColors.rose;
+
+  return (
+    <View>
+      <View style={styles.equityHeader}>
+        <Text style={styles.sectionHeading}>Equity curve (cumulative R)</Text>
+        {last && (
+          <Text style={[styles.equityHeaderValue, { color }]}>
+            {positive ? "+" : ""}
+            {last.cumulativeR.toFixed(2)}R
+          </Text>
+        )}
+      </View>
+      <View style={styles.equityBox} onLayout={onLayout}>
+        {points.length < 2 ? (
+          <Text style={styles.equityEmptyText}>Needs at least 2 closed trades with a computed R multiple to plot a curve.</Text>
+        ) : width === 0 ? null : (
+          <EquityCurveSvg points={points} width={width} height={EQUITY_CHART_HEIGHT} color={color} />
+        )}
+      </View>
+    </View>
+  );
+}
+
 const CONFLUENCE_LABEL: Record<string, string> = {
   liquidity_sweep: "Liquidity sweep",
   bos: "Break of structure",
@@ -251,6 +363,7 @@ export function JournalPanel() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       {data && <StatsSummary stats={data.stats} openCount={data.openCount} />}
+      {data && <EquityCurveChart entries={data.entries} />}
       {data && <SignalFunnelSummary funnel={data.signalFunnel} />}
       {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
       {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
@@ -315,4 +428,19 @@ const styles = StyleSheet.create({
   confluenceHint: { fontSize: 11, color: DashboardColors.textMuted, lineHeight: 15, marginBottom: 8 },
   confluenceInsufficient: { color: DashboardColors.amber },
   breakdownSpanTwo: { flex: 2 },
+  equityHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 },
+  equityHeaderValue: { fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  equityBox: {
+    minHeight: EQUITY_CHART_HEIGHT,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: DashboardColors.border,
+    backgroundColor: DashboardColors.surface,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+  },
+  equityEmptyText: { color: DashboardColors.textMuted, fontSize: 12, textAlign: "center", padding: 12 },
+  equitySvgWrap: { position: "relative" },
+  equityEndLabel: { position: "absolute", fontSize: 10, fontWeight: "700" },
 });
