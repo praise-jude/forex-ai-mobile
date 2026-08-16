@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
-import { usePolling } from "@/lib/api/usePolling";
+import { usePolledResource } from "@/lib/api/usePolledResource";
 import type { ExecutionPolicyResponse } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
@@ -17,7 +18,10 @@ const POLL_INTERVAL_MS = 15000;
  */
 export function ExecutionPolicyControl() {
   const api = useApi();
-  const { data, setData } = usePolling(() => api.get<ExecutionPolicyResponse>("/api/execution-policy"), POLL_INTERVAL_MS);
+  // Rendered on both the Dashboard tab and the Settings tab -- both stay mounted
+  // simultaneously under NativeTabs, so this used to poll from both places at once.
+  const isFocused = useIsFocused();
+  const { data, setData } = usePolledResource("execution-policy", () => api.get<ExecutionPolicyResponse>("/api/execution-policy"), POLL_INTERVAL_MS, isFocused);
   const [minTier, setMinTier] = useState<"buy" | "strong_buy">("buy");
   const [minRiskRewardInput, setMinRiskRewardInput] = useState("0");
   const [busy, setBusy] = useState(false);

@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { Link, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -170,10 +170,25 @@ export default function DashboardScreen() {
   const stableTrendsRef = useRef<Map<string, HigherTimeframeTrends>>(new Map());
   const stableWatchlistRef = useRef<WatchlistCache>({ entries: new Map(), lastOutput: [] });
 
-  const { data: snapshot, error: snapshotError } = usePolling(
+  // Every tab (Dashboard/Chat/Journal/Backtest/Settings) stays mounted the whole app
+  // session under expo-router's NativeTabs -- switching tabs never unmounts a screen,
+  // it only blocks touches on the inactive ones. Without gating on focus, every poll
+  // below would keep firing in the background regardless of which tab is actually on
+  // screen, compounding across all five. isFocused flips false the instant another tab
+  // is selected and true again the instant this one is, so each `enabled` here also
+  // doubles as "only poll while this screen is actually visible".
+  const isFocused = useIsFocused();
+
+  // Shared "signals" key with SignalDiagnosticsCard.tsx (Settings tab) -- both used to
+  // poll /api/signals independently. Since both gate on their own screen's isFocused
+  // and only one screen is ever focused at a time, this key is never actually polled
+  // from two places at once; usePolledResource just makes that guarantee robust instead
+  // of relying on the two components happening to agree.
+  const { data: snapshot, error: snapshotError } = usePolledResource(
+    "signals",
     () => api.get<SignalsSnapshot>("/api/signals"),
     SIGNALS_POLL_MS,
-    isConfigured
+    isConfigured && isFocused
   );
 
   // Confirmation Mode's own state -- drives whether SignalsList shows an execute
@@ -181,12 +196,17 @@ export default function DashboardScreen() {
   const { data: confirmationMode } = usePolling(
     () => api.get<ConfirmationModeResponse>("/api/confirmation-mode"),
     15000,
-    isConfigured
+    isConfigured && isFocused
   );
   // Seeds the proposal card's default "Risk" figure -- the account's actually-configured
   // riskPerTradePct. EngineModeControl polls the exact same "engine-mode" key --
   // usePolledResource dedupes them into one shared interval/request instead of two.
-  const { data: engineModeData } = usePolledResource("engine-mode", () => api.get<EngineModeResponse>("/api/engine-mode"), 7000, isConfigured);
+  const { data: engineModeData } = usePolledResource(
+    "engine-mode",
+    () => api.get<EngineModeResponse>("/api/engine-mode"),
+    7000,
+    isConfigured && isFocused
+  );
 
   // Stabilization (reusing prior-render object references for unchanged items, so
   // Watchlist/SignalCard's own memoization isn't defeated by every poll tick's fresh

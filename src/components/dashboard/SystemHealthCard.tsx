@@ -1,3 +1,5 @@
+import { memo } from "react";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { StyleSheet, Text, View } from "react-native";
@@ -57,9 +59,15 @@ function AccountHealthBlock({ account, health }: { account: AccountKey; health: 
   );
 }
 
-export function SystemHealthCard() {
+// Memoized (zero props -- always "equal" once mounted) so unrelated re-renders of the
+// Settings screen (e.g. every keystroke in the server URL/password fields) don't also
+// re-render this. Also gated on tab focus -- Settings stays mounted under NativeTabs
+// even while another tab is active, so this would otherwise keep polling in the
+// background regardless of which screen is actually visible.
+export const SystemHealthCard = memo(function SystemHealthCard() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<SystemHealthResponse>("/api/system-health"), POLL_INTERVAL_MS);
+  const isFocused = useIsFocused();
+  const { data } = usePolling(() => api.get<SystemHealthResponse>("/api/system-health"), POLL_INTERVAL_MS, isFocused);
 
   if (!data) return null;
 
@@ -70,7 +78,7 @@ export function SystemHealthCard() {
       {data.demo && <AccountHealthBlock account="demo" health={data.demo} />}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { gap: 10 },

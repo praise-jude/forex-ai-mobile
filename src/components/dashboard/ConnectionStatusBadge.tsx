@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { formatAgo } from "@/lib/api/format";
 import { usePolling } from "@/lib/api/usePolling";
@@ -27,17 +28,22 @@ const STATUS_COLOR: Record<ConnectionStatusValue, string> = {
 export function ConnectionStatusBadge() {
   const api = useApi();
   const [now, setNow] = useState(() => Date.now());
-  const { data } = usePolling(() => api.get<ConnectionStatusResponse>("/api/connection-status"), POLL_INTERVAL_MS);
+  // Gated on tab focus -- the Dashboard tab stays mounted under NativeTabs even while
+  // another tab is active.
+  const isFocused = useIsFocused();
+  const { data } = usePolling(() => api.get<ConnectionStatusResponse>("/api/connection-status"), POLL_INTERVAL_MS, isFocused);
 
   // Ticks independently of the poll so "updated Xs ago" stays reasonably fresh between
   // fetches -- matched to POLL_INTERVAL_MS (not 1s): a second-level countdown here would
   // be imperceptible (unlike RiskGuardianBanner's cooldown timer, which genuinely
   // benefits from 1s precision), so there's no reason to run a faster 1Hz timer for the
-  // whole time the dashboard is on screen just for this label.
+  // whole time the dashboard is on screen just for this label. Also gated on focus --
+  // no reason to re-render this label every 3s while another tab is on screen.
   useEffect(() => {
+    if (!isFocused) return;
     const id = setInterval(() => setNow(Date.now()), POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [isFocused]);
 
   // Before the first poll resolves this is "we don't know yet", not "disconnected" --
   // a distinct, honest placeholder rather than silently rendering nothing (which read

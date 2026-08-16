@@ -1,4 +1,6 @@
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import type { CorrelationResponse } from "@/lib/api/types";
@@ -20,10 +22,13 @@ function formatAge(ms: number | null): string {
  * Sign matters: positive correlation means two pairs move together (same-direction
  * positions compound risk), negative means they move oppositely (opposite-direction
  * positions compound risk instead). RN port of forex-ai's CorrelationPanel.tsx.
+ * Memoized (zero props) and gated on tab focus -- Settings stays mounted under
+ * NativeTabs even while another tab is active.
  */
-export function CorrelationCard() {
+export const CorrelationCard = memo(function CorrelationCard() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<CorrelationResponse>("/api/correlation"), POLL_INTERVAL_MS);
+  const isFocused = useIsFocused();
+  const { data } = usePolling(() => api.get<CorrelationResponse>("/api/correlation"), POLL_INTERVAL_MS, isFocused);
 
   if (!data) return null;
 
@@ -69,7 +74,7 @@ export function CorrelationCard() {
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { gap: 8 },

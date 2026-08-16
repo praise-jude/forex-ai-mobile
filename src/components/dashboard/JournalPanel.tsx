@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Circle, Line, Path } from "react-native-svg";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
-import { usePolling } from "@/lib/api/usePolling";
+import { usePolledResource } from "@/lib/api/usePolledResource";
 import { formatPrice } from "@/lib/api/format";
 import type { ConfluenceBreakdownBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats, SlippageStats } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
@@ -438,7 +439,11 @@ function EntryRow({ entry }: { entry: JournalEntry }) {
 
 export function JournalPanel() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<JournalResponse>("/api/trade-journal"), POLL_INTERVAL_MS);
+  // Gated on tab focus (the Journal tab stays mounted under NativeTabs even while
+  // another tab is active) and shares the "trade-journal" key with
+  // ConfidenceCalibrationCard.tsx (Settings tab) -- see that component's own comment.
+  const isFocused = useIsFocused();
+  const { data } = usePolledResource("trade-journal", () => api.get<JournalResponse>("/api/trade-journal"), POLL_INTERVAL_MS, isFocused);
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>

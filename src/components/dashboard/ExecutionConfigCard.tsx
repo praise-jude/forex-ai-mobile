@@ -1,4 +1,6 @@
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import type { ExecutionConfig, ExecutionConfigResponse } from "@/lib/api/types";
@@ -56,9 +58,13 @@ function ConfigBlock({ account, config }: { account: string; config: ExecutionCo
   );
 }
 
-export function ExecutionConfigCard() {
+// Memoized (zero props) so unrelated Settings screen re-renders don't re-render this,
+// and gated on tab focus since Settings stays mounted under NativeTabs even while
+// another tab is active.
+export const ExecutionConfigCard = memo(function ExecutionConfigCard() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<ExecutionConfigResponse>("/api/execution-config"), POLL_INTERVAL_MS);
+  const isFocused = useIsFocused();
+  const { data } = usePolling(() => api.get<ExecutionConfigResponse>("/api/execution-config"), POLL_INTERVAL_MS, isFocused);
 
   if (!data) return null;
 
@@ -71,7 +77,7 @@ export function ExecutionConfigCard() {
       {data.demo && <ConfigBlock account="Demo" config={data.demo} />}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { gap: 10 },

@@ -1,6 +1,8 @@
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
-import { usePolling } from "@/lib/api/usePolling";
+import { usePolledResource } from "@/lib/api/usePolledResource";
 import { PAIRS, type ExecutedTrade, type Pair, type PredictionUpdate, type SignalsSnapshot } from "@/lib/api/types";
 import { predictionHeadline, predictionSubline } from "@/lib/api/predictionLabel";
 import { describeNoTradeReason, REGIME_LABEL } from "@/lib/api/noTradeReason";
@@ -45,11 +47,16 @@ function ExecutionStatus({ trade }: { trade: ExecutedTrade | undefined }) {
  * All-pairs "why did/didn't AutoPilot trade" overview -- built entirely from data the
  * engine already computes (describeNoTradeReason, predictionHeadline) and /api/signals,
  * the same endpoint the Dashboard tab already polls. Nothing new is invented here; this
- * only surfaces what already exists in one scannable place.
+ * only surfaces what already exists in one scannable place. Memoized (zero props) and
+ * gated on tab focus -- Settings stays mounted under NativeTabs even while another tab
+ * is active. Shares the "signals" key with index.tsx's own poll of the same endpoint --
+ * since each gates on its own screen's focus, only one is ever actually enabled at a
+ * time, and usePolledResource makes that a real guarantee.
  */
-export function SignalDiagnosticsCard() {
+export const SignalDiagnosticsCard = memo(function SignalDiagnosticsCard() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<SignalsSnapshot>("/api/signals"), POLL_INTERVAL_MS);
+  const isFocused = useIsFocused();
+  const { data } = usePolledResource("signals", () => api.get<SignalsSnapshot>("/api/signals"), POLL_INTERVAL_MS, isFocused);
 
   if (!data) return null;
 
@@ -98,7 +105,7 @@ export function SignalDiagnosticsCard() {
       })}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { gap: 8 },

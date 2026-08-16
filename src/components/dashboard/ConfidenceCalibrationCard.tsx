@@ -1,6 +1,8 @@
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
-import { usePolling } from "@/lib/api/usePolling";
+import { usePolledResource } from "@/lib/api/usePolledResource";
 import type { CalibrationStatus, DimensionTier, JournalResponse, SignerBCalibrationBucket } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ProgressBar } from "./ProgressBar";
@@ -83,9 +85,16 @@ function SignerBScorecard({ buckets, minSamples }: { buckets: SignerBCalibration
   );
 }
 
-export function ConfidenceCalibrationCard() {
+// Memoized (zero props) and gated on tab focus -- Settings stays mounted under
+// NativeTabs even while another tab is active. Shares the "trade-journal" key with
+// JournalPanel.tsx (Journal tab) -- both used to poll /api/trade-journal
+// independently; since each gates on its own screen's focus, only one is ever
+// actually enabled at a time, and usePolledResource makes that a real guarantee
+// instead of relying on the two components happening to agree.
+export const ConfidenceCalibrationCard = memo(function ConfidenceCalibrationCard() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<JournalResponse>("/api/trade-journal"), POLL_INTERVAL_MS);
+  const isFocused = useIsFocused();
+  const { data } = usePolledResource("trade-journal", () => api.get<JournalResponse>("/api/trade-journal"), POLL_INTERVAL_MS, isFocused);
 
   if (!data) return null;
 
@@ -105,7 +114,7 @@ export function ConfidenceCalibrationCard() {
       <SignerBScorecard buckets={data.signerBCalibration} minSamples={data.calibrationMinSamples} />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { gap: 10 },

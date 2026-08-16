@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolledResource } from "@/lib/api/usePolledResource";
 import type { EngineMode, EngineModeResponse } from "@/lib/api/types";
@@ -22,9 +23,14 @@ const MODE_COLOR: Record<EngineMode, { bg: string; text: string }> = {
 
 export function EngineModeControl() {
   const api = useApi();
+  // Rendered on both the Dashboard tab and the Settings tab, both of which stay
+  // mounted simultaneously (expo-router's NativeTabs never unmounts an inactive tab) --
+  // each instance gates on its own screen's focus so only the visible one actually
+  // contributes to the shared "engine-mode" poll (see usePolledResource's own dedup).
+  const isFocused = useIsFocused();
   // Shared with index.tsx, which polls this exact same "engine-mode" key --
   // usePolledResource dedupes them into a single interval/request instead of two.
-  const { data, setData } = usePolledResource("engine-mode", () => api.get<EngineModeResponse>("/api/engine-mode"), POLL_INTERVAL_MS);
+  const { data, setData } = usePolledResource("engine-mode", () => api.get<EngineModeResponse>("/api/engine-mode"), POLL_INTERVAL_MS, isFocused);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showLiveConfirm, setShowLiveConfirm] = useState(false);

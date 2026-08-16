@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { formatRemaining } from "@/lib/api/format";
 import { usePolling } from "@/lib/api/usePolling";
@@ -11,10 +12,13 @@ const POLL_INTERVAL_MS = 7000;
 /** Renders nothing once loaded if nothing is active -- this is a guardian-tripped
  * alert, not a status-quo indicator (ConnectionStatusBadge/EngineModeControl already
  * cover normal state). Shows a neutral loading placeholder only until the first poll
- * resolves, see below. */
+ * resolves, see below. Gated on tab focus -- the Dashboard tab stays mounted under
+ * NativeTabs even while another tab is active, so this would otherwise keep polling
+ * in the background regardless of which screen is actually visible. */
 export function RiskGuardianBanner() {
   const api = useApi();
-  const { data, setData } = usePolling(() => api.get<RiskStatusResponse>("/api/risk-status"), POLL_INTERVAL_MS);
+  const isFocused = useIsFocused();
+  const { data, setData } = usePolling(() => api.get<RiskStatusResponse>("/api/risk-status"), POLL_INTERVAL_MS, isFocused);
   const [now, setNow] = useState(() => Date.now());
   const [acknowledging, setAcknowledging] = useState(false);
 

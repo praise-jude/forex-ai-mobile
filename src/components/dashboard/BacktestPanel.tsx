@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import {
@@ -249,7 +250,10 @@ function ResultsView({ job }: { job: BacktestJob }) {
 
 export function BacktestPanel() {
   const api = useApi();
-  const { data, setData } = usePolling(() => api.get<BacktestListResponse>("/api/backtest"), POLL_INTERVAL_MS);
+  // Gated on tab focus -- the Backtest tab stays mounted under NativeTabs even while
+  // another tab is active.
+  const isFocused = useIsFocused();
+  const { data, setData } = usePolling(() => api.get<BacktestListResponse>("/api/backtest"), POLL_INTERVAL_MS, isFocused);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

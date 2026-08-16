@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
@@ -37,7 +38,10 @@ function PositionRow({ position }: { position: OpenPosition }) {
 
 export function PositionsList() {
   const api = useApi();
-  const { data } = usePolling(() => api.get<PositionsResponse>("/api/positions"), POLL_INTERVAL_MS);
+  // Gated on tab focus -- the Dashboard tab stays mounted under NativeTabs even while
+  // another tab is active.
+  const isFocused = useIsFocused();
+  const { data } = usePolling(() => api.get<PositionsResponse>("/api/positions"), POLL_INTERVAL_MS, isFocused);
 
   return (
     <View>

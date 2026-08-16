@@ -1,6 +1,7 @@
 import { Fragment, memo, useMemo, useState } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Line, Polyline, Rect } from "react-native-svg";
+import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
@@ -21,10 +22,14 @@ const FORECAST_BAR_SPACING = 3;
 export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timeframe: Timeframe; prediction: PredictionUpdate | null }) {
   const api = useApi();
   const [width, setWidth] = useState(0);
+  // Gated on tab focus -- the Dashboard tab stays mounted under NativeTabs even while
+  // another tab is active.
+  const isFocused = useIsFocused();
 
   const { data, error } = usePolling(
     () => api.get<{ pair: Pair; timeframe: Timeframe; candles: Candle[] }>(`/api/candles?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}`),
-    POLL_INTERVAL_MS
+    POLL_INTERVAL_MS,
+    isFocused
   );
 
   function onLayout(e: LayoutChangeEvent) {
