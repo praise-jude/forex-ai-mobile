@@ -13,6 +13,7 @@ import { EngineModeControl } from "@/components/dashboard/EngineModeControl";
 import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
 import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
 import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
+import { ConfirmationModeControl } from "@/components/dashboard/ConfirmationModeControl";
 import { SystemHealthCard } from "@/components/dashboard/SystemHealthCard";
 import { ConfidenceCalibrationCard } from "@/components/dashboard/ConfidenceCalibrationCard";
 import { ExecutionConfigCard } from "@/components/dashboard/ExecutionConfigCard";
@@ -165,6 +166,8 @@ function TradingControlsSection() {
       <EmergencyStopControl account="live" />
       <View style={styles.controlsDivider} />
       <ExecutionPolicyControl />
+      <View style={styles.controlsDivider} />
+      <ConfirmationModeControl />
     </View>
   );
 }

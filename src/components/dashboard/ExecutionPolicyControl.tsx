@@ -18,8 +18,8 @@ const POLL_INTERVAL_MS = 15000;
  */
 export function ExecutionPolicyControl() {
   const api = useApi();
-  // Rendered on both the Dashboard tab and the Settings tab -- both stay mounted
-  // simultaneously under NativeTabs, so this used to poll from both places at once.
+  // Gated on tab focus -- Settings stays mounted under NativeTabs even while another
+  // tab is active.
   const isFocused = useIsFocused();
   const { data, setData } = usePolledResource("execution-policy", () => api.get<ExecutionPolicyResponse>("/api/execution-policy"), POLL_INTERVAL_MS, isFocused);
   const [minTier, setMinTier] = useState<"buy" | "strong_buy">("buy");

@@ -23,10 +23,9 @@ const MODE_COLOR: Record<EngineMode, { bg: string; text: string }> = {
 
 export function EngineModeControl() {
   const api = useApi();
-  // Rendered on both the Dashboard tab and the Settings tab, both of which stay
-  // mounted simultaneously (expo-router's NativeTabs never unmounts an inactive tab) --
-  // each instance gates on its own screen's focus so only the visible one actually
-  // contributes to the shared "engine-mode" poll (see usePolledResource's own dedup).
+  // Gated on tab focus -- Settings stays mounted under NativeTabs even while another
+  // tab is active. Shares the "engine-mode" key with index.tsx's own poll of the same
+  // endpoint (see usePolledResource's own dedup).
   const isFocused = useIsFocused();
   // Shared with index.tsx, which polls this exact same "engine-mode" key --
   // usePolledResource dedupes them into a single interval/request instead of two.

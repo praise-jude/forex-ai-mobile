@@ -8,10 +8,8 @@ import { DashboardColors } from "@/constants/dashboardColors";
 
 export function KillSwitchControl({ account = "live" }: { account?: "live" | "demo" }) {
   const api = useApi();
-  // Rendered on both the Dashboard tab and the Settings tab for the same account --
-  // both used to poll independently via usePolling (a genuine duplicate, both tabs
-  // always mounted under NativeTabs). Shared key + focus-gating fixes both the
-  // duplicate and the background-tab waste in one change.
+  // Gated on tab focus -- Settings stays mounted under NativeTabs even while another
+  // tab is active.
   const isFocused = useIsFocused();
   const { data, setData } = usePolledResource(`kill-switch:${account}`, () => api.get<KillSwitchState>(`/api/kill-switch?account=${account}`), 15000, isFocused);
   const [busy, setBusy] = useState(false);
