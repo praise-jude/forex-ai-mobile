@@ -133,6 +133,12 @@ function NotificationSettingsSection() {
         onChange={(v) => setPref("weeklyDigest", v)}
         disabled={disabled}
       />
+      <ToggleRow
+        label="Daily performance digest"
+        value={prefs?.dailyDigest ?? false}
+        onChange={(v) => setPref("dailyDigest", v)}
+        disabled={disabled}
+      />
       <StepperRow
         label="Minimum signal confidence"
         value={prefs?.minConfidence ?? 80}

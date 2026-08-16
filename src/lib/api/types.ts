@@ -435,6 +435,7 @@ export interface NotificationPrefs {
   riskAlerts: boolean;
   connectionAlerts: boolean;
   weeklyDigest: boolean;
+  dailyDigest: boolean;
   minConfidence: number;
 }
 
@@ -446,6 +447,9 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   riskAlerts: true,
   connectionAlerts: true,
   weeklyDigest: true,
+  // Defaults OFF, unlike weeklyDigest -- mirrors forex-ai's own default, since a
+  // nightly push is a much higher-frequency ask than a weekly one.
+  dailyDigest: false,
   minConfidence: 80,
 };
 
