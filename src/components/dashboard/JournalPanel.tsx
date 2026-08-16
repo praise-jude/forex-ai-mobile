@@ -2,8 +2,12 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
-import type { JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats } from "@/lib/api/types";
+import type { ConfluenceBreakdownBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
+
+// Mirrors forex-ai's tradeJournal.ts DEFAULT_CONFLUENCE_MIN_SAMPLES -- a display label
+// only; the server is the actual source of truth for each bucket's "ok"/"insufficient_data" status.
+const CONFLUENCE_MIN_SAMPLES = 10;
 
 // Trades close on the order of minutes to hours, not seconds -- a slow poll is plenty
 // responsive for a screen that isn't the primary live-trading surface.
@@ -134,6 +138,79 @@ function BreakdownTable({
   );
 }
 
+const CONFLUENCE_LABEL: Record<string, string> = {
+  liquidity_sweep: "Liquidity sweep",
+  bos: "Break of structure",
+  choch: "Change of character",
+  fvg: "Fair value gap",
+  order_block: "Order block",
+  killzone: "Killzone timing",
+  ema_trend: "EMA trend",
+  rsi_momentum: "RSI momentum",
+  macd_crossover: "MACD crossover",
+  volume: "Volume",
+  trend_ema_stack: "EMA stack trend",
+  market_structure: "Market structure",
+  adx: "ADX strength",
+  candlestick: "Candlestick pattern",
+  multi_timeframe: "Multi-timeframe",
+  supertrend: "Supertrend",
+  currency_strength: "Currency strength",
+  rsi_divergence: "RSI divergence",
+};
+
+/** "Which confluences actually predict wins" -- a dedicated table (not BreakdownTable
+ * above) since buckets aren't mutually exclusive and can be "insufficient_data", which
+ * needs an honest flagged row instead of a misleadingly-precise percentage from a
+ * handful of trades. Rows already arrive sorted by sample size. RN port of forex-ai's
+ * JournalPanel.tsx ConfluenceBreakdownTable. */
+function ConfluenceBreakdownTable({ breakdown }: { breakdown: ConfluenceBreakdownBucket[] }) {
+  if (breakdown.length === 0) return null;
+
+  return (
+    <View>
+      <Text style={styles.sectionHeading}>Which confluences actually predict wins</Text>
+      <Text style={styles.confluenceHint}>
+        Real win rate/average R where each confluence was present on the signal. Buckets under {CONFLUENCE_MIN_SAMPLES} trades
+        are flagged, not hidden.
+      </Text>
+      <View style={styles.breakdownTable}>
+        <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText, styles.breakdownGroupCol]}>Confluence</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Trades</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Win rate</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Avg R</Text>
+        </View>
+        {breakdown.map((bucket) => (
+          <View key={bucket.confluence} style={styles.breakdownRow}>
+            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>
+              {CONFLUENCE_LABEL[bucket.confluence] ?? bucket.confluence}
+            </Text>
+            <Text style={styles.breakdownCell}>{bucket.sampleSize}</Text>
+            {bucket.status === "insufficient_data" ? (
+              <Text style={[styles.breakdownCell, styles.confluenceInsufficient, styles.breakdownSpanTwo]}>
+                Needs {CONFLUENCE_MIN_SAMPLES}, have {bucket.sampleSize}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.breakdownCell}>{bucket.winRate!.toFixed(0)}%</Text>
+                <Text
+                  style={[
+                    styles.breakdownCell,
+                    { color: bucket.averageR === null ? DashboardColors.textMuted : bucket.averageR >= 0 ? DashboardColors.emerald : DashboardColors.rose },
+                  ]}
+                >
+                  {bucket.averageR === null ? "—" : `${bucket.averageR >= 0 ? "+" : ""}${bucket.averageR.toFixed(2)}R`}
+                </Text>
+              </>
+            )}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function EntryRow({ entry }: { entry: JournalEntry }) {
   const isLong = entry.direction === "long";
   const inProfit = entry.profit >= 0;
@@ -177,6 +254,7 @@ export function JournalPanel() {
       {data && <SignalFunnelSummary funnel={data.signalFunnel} />}
       {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
       {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
+      {data && <ConfluenceBreakdownTable breakdown={data.breakdownByConfluence} />}
 
       <View>
         <Text style={styles.sectionHeading}>Closed trades</Text>
@@ -234,4 +312,7 @@ const styles = StyleSheet.create({
   breakdownGroupCol: { flex: 1.4 },
   breakdownGroupText: { color: DashboardColors.textPrimary, fontWeight: "600" },
   breakdownHeaderText: { color: DashboardColors.textMuted, fontWeight: "700", textTransform: "uppercase", fontSize: 10 },
+  confluenceHint: { fontSize: 11, color: DashboardColors.textMuted, lineHeight: 15, marginBottom: 8 },
+  confluenceInsufficient: { color: DashboardColors.amber },
+  breakdownSpanTwo: { flex: 2 },
 });

@@ -309,10 +309,14 @@ export function statusFromTrade(trade: ExecutedTrade): CardStatus | null {
 export type JournalCloseReason = "stop_loss" | "take_profit" | "invalidation" | "manual" | "other";
 
 // Minimal mirror of SignalContext -- the Journal screen only ever reads
-// setupQuality.total and regime off this, never the rest of the breakdown.
+// setupQuality.total, regime, and (for confluence-edge analytics) confluences off this,
+// never the rest of the breakdown.
 export interface JournalSignalContext {
   regime: MarketRegime;
   setupQuality: { total: number };
+  /** Optional -- entries recorded before this field existed on the server have it
+   * undefined, never a fabricated guess at which confluences were present. */
+  confluences?: Confluence[];
 }
 
 export interface JournalEntry {
@@ -348,6 +352,19 @@ export interface SignalFunnelStats {
   blocked: number;
 }
 
+// "Which confluences actually predict wins" -- mirrors forex-ai's
+// getConfluenceBreakdown in lib/market/tradeJournal.ts. Buckets are not mutually
+// exclusive (a trade's signal can carry many confluences at once).
+export type ConfluenceStatus = "ok" | "insufficient_data";
+
+export interface ConfluenceBreakdownBucket {
+  confluence: Confluence;
+  sampleSize: number;
+  status: ConfluenceStatus;
+  winRate: number | null;
+  averageR: number | null;
+}
+
 export interface JournalResponse {
   entries: JournalEntry[];
   stats: PerformanceStats;
@@ -355,6 +372,7 @@ export interface JournalResponse {
   signalFunnel: SignalFunnelStats;
   breakdownByPair: Record<string, PerformanceStats>;
   breakdownBySession: Record<string, PerformanceStats>;
+  breakdownByConfluence: ConfluenceBreakdownBucket[];
 }
 
 // --- Push notifications (mirrors forex-ai's lib/market/types.ts) ---
