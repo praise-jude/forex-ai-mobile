@@ -389,6 +389,21 @@ export interface JournalResponse {
   breakdownByConfluence: ConfluenceBreakdownBucket[];
   slippage: SlippageStats;
   slippageByPair: Record<string, SlippageStats>;
+  confidenceCalibration: ConfidenceCalibrationBucket[];
+  calibrationMinSamples: number;
+}
+
+// "Can I actually trust a 95% confidence signal" -- mirrors forex-ai's
+// getConfidenceCalibration in lib/market/tradeJournal.ts.
+export type CalibrationStatus = "calibrated" | "insufficient_data";
+
+export interface ConfidenceCalibrationBucket {
+  tier: "buy" | "strong_buy";
+  sampleSize: number;
+  status: CalibrationStatus;
+  winRate: number | null;
+  averageR: number | null;
+  expectancy: number | null;
 }
 
 // --- Push notifications (mirrors forex-ai's lib/market/types.ts) ---

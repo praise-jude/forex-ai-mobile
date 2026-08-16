@@ -14,6 +14,7 @@ import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
 import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
 import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
 import { SystemHealthCard } from "@/components/dashboard/SystemHealthCard";
+import { ConfidenceCalibrationCard } from "@/components/dashboard/ConfidenceCalibrationCard";
 
 type TestState = { state: "idle" } | { state: "testing" } | { state: "ok" } | { state: "error"; message: string };
 
@@ -346,6 +347,7 @@ export default function SettingsScreen() {
 
         {isConfigured && <SystemHealthCard />}
         {isConfigured && <TradingControlsSection />}
+        {isConfigured && <ConfidenceCalibrationCard />}
         {isConfigured && <NotificationSettingsSection />}
         <VoiceSettingsSection />
       </ScrollView>
