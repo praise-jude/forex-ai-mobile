@@ -365,6 +365,17 @@ export interface ConfluenceBreakdownBucket {
   averageR: number | null;
 }
 
+// "Is the broker filling me at a worse price than I asked for" -- mirrors forex-ai's
+// getSlippageStats in lib/market/slippage.ts. Positive pips = adverse (cost you),
+// negative = favorable (helped you).
+export interface SlippageStats {
+  count: number;
+  averagePips: number | null;
+  adverseRate: number;
+  worstAdversePips: number | null;
+  bestFavorablePips: number | null;
+}
+
 export interface JournalResponse {
   entries: JournalEntry[];
   stats: PerformanceStats;
@@ -373,6 +384,8 @@ export interface JournalResponse {
   breakdownByPair: Record<string, PerformanceStats>;
   breakdownBySession: Record<string, PerformanceStats>;
   breakdownByConfluence: ConfluenceBreakdownBucket[];
+  slippage: SlippageStats;
+  slippageByPair: Record<string, SlippageStats>;
 }
 
 // --- Push notifications (mirrors forex-ai's lib/market/types.ts) ---

@@ -4,7 +4,7 @@ import Svg, { Circle, Line, Path } from "react-native-svg";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
-import type { ConfluenceBreakdownBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats } from "@/lib/api/types";
+import type { ConfluenceBreakdownBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats, SlippageStats } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
 // Mirrors forex-ai's tradeJournal.ts DEFAULT_CONFLUENCE_MIN_SAMPLES -- a display label
@@ -250,6 +250,74 @@ function EquityCurveChart({ entries }: { entries: JournalEntry[] }) {
   );
 }
 
+function formatPips(pips: number | null): string {
+  return pips === null ? "—" : `${pips >= 0 ? "+" : ""}${pips.toFixed(1)} pips`;
+}
+
+/** "Is the broker filling me at a worse price than I asked for" -- RN port of
+ * forex-ai's JournalPanel.tsx SlippageSummary. Positive pips = adverse, negative =
+ * favorable. */
+function SlippageSummary({ stats }: { stats: SlippageStats }) {
+  if (stats.count === 0) return null;
+  const avgTone = stats.averagePips === null || stats.averagePips === 0 ? undefined : stats.averagePips > 0 ? "negative" : "positive";
+  const worstIsAdverse = stats.worstAdversePips !== null && stats.worstAdversePips > 0;
+  const bestIsFavorable = stats.bestFavorablePips !== null && stats.bestFavorablePips < 0;
+
+  return (
+    <View>
+      <Text style={styles.sectionHeading}>Execution quality (slippage)</Text>
+      <View style={styles.statsGrid}>
+        <StatTile label="Fills measured" value={String(stats.count)} />
+        <StatTile label="Average slippage" value={formatPips(stats.averagePips)} tone={avgTone} />
+        <StatTile label="Adverse fills" value={`${stats.adverseRate.toFixed(0)}%`} tone={stats.adverseRate > 50 ? "negative" : undefined} />
+        <StatTile label="Worst adverse" value={formatPips(stats.worstAdversePips)} tone={worstIsAdverse ? "negative" : "positive"} />
+        <StatTile label="Best favorable" value={formatPips(stats.bestFavorablePips)} tone={bestIsFavorable ? "positive" : "negative"} />
+      </View>
+    </View>
+  );
+}
+
+function SlippageBreakdownTable({ breakdown }: { breakdown: Record<string, SlippageStats> }) {
+  const rows = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+  if (rows.length === 0) return null;
+
+  return (
+    <View>
+      <Text style={styles.sectionHeading}>Slippage by pair</Text>
+      <View style={styles.breakdownTable}>
+        <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
+          <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownHeaderText]}>Pair</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Fills</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Avg slippage</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Adverse</Text>
+        </View>
+        {rows.map(([pair, stats]) => (
+          <View key={pair} style={styles.breakdownRow}>
+            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>{pair}</Text>
+            <Text style={styles.breakdownCell}>{stats.count}</Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                {
+                  color:
+                    stats.averagePips === null || stats.averagePips === 0
+                      ? DashboardColors.textMuted
+                      : stats.averagePips > 0
+                        ? DashboardColors.rose
+                        : DashboardColors.emerald,
+                },
+              ]}
+            >
+              {formatPips(stats.averagePips)}
+            </Text>
+            <Text style={styles.breakdownCell}>{stats.adverseRate.toFixed(0)}%</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const CONFLUENCE_LABEL: Record<string, string> = {
   liquidity_sweep: "Liquidity sweep",
   bos: "Break of structure",
@@ -368,6 +436,8 @@ export function JournalPanel() {
       {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
       {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
       {data && <ConfluenceBreakdownTable breakdown={data.breakdownByConfluence} />}
+      {data && <SlippageSummary stats={data.slippage} />}
+      {data && <SlippageBreakdownTable breakdown={data.slippageByPair} />}
 
       <View>
         <Text style={styles.sectionHeading}>Closed trades</Text>
