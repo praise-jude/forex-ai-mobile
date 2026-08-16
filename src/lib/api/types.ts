@@ -390,6 +390,7 @@ export interface JournalResponse {
   slippage: SlippageStats;
   slippageByPair: Record<string, SlippageStats>;
   confidenceCalibration: ConfidenceCalibrationBucket[];
+  signerBCalibration: SignerBCalibrationBucket[];
   calibrationMinSamples: number;
 }
 
@@ -399,6 +400,24 @@ export type CalibrationStatus = "calibrated" | "insufficient_data";
 
 export interface ConfidenceCalibrationBucket {
   tier: "buy" | "strong_buy";
+  sampleSize: number;
+  status: CalibrationStatus;
+  winRate: number | null;
+  averageR: number | null;
+  expectancy: number | null;
+}
+
+// Mirrors forex-ai's DimensionTier (lib/market/confidenceScore.ts).
+export type DimensionTier = "no_trade" | "watch" | "buy" | "strong_buy";
+
+// "Is Signer B actually pulling its weight, or just rubber-stamping Signer A" -- mirrors
+// forex-ai's getSignerBCalibration in lib/market/tradeJournal.ts. Every fired signal
+// already has Signer B agreeing with Signer A on direction (decisionMatrix.ts holds on
+// any disagreement/neutral read), so this buckets by Signer B's own confidence level
+// instead -- spans all four DimensionTier values, unlike Signer A's own calibration
+// (buy/strong_buy only, gated by construction of what becomes a Signal at all).
+export interface SignerBCalibrationBucket {
+  tier: DimensionTier;
   sampleSize: number;
   status: CalibrationStatus;
   winRate: number | null;

@@ -1,33 +1,48 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
-import type { ConfidenceCalibrationBucket, JournalResponse } from "@/lib/api/types";
+import type { CalibrationStatus, DimensionTier, JournalResponse, SignerBCalibrationBucket } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
 // Trades close on the order of minutes to hours, not seconds -- matches the Journal
 // screen's own poll interval for the same /api/trade-journal endpoint.
 const POLL_INTERVAL_MS = 15000;
 
-const TIER_LABEL: Record<ConfidenceCalibrationBucket["tier"], string> = {
+const SIGNER_A_TIER_LABEL: Record<"buy" | "strong_buy", string> = {
   buy: "Buy (90-94)",
   strong_buy: "Strong buy (95-100)",
 };
 
+const SIGNER_B_TIER_LABEL: Record<DimensionTier, string> = {
+  no_trade: "No trade (<80)",
+  watch: "Watch (80-89)",
+  buy: "Buy (90-94)",
+  strong_buy: "Strong buy (95-100)",
+};
+
+interface CalibrationBucketLike {
+  sampleSize: number;
+  status: CalibrationStatus;
+  winRate: number | null;
+  averageR: number | null;
+  expectancy: number | null;
+}
+
 /** RN port of forex-ai's app/settings/page.tsx CalibrationRow -- real historical
  * performance per confidence tier, so "95% confidence" can be checked against what
  * actually happened instead of trusted as a probability. Read-only measurement, never
- * wired into position sizing. */
-function CalibrationRow({ bucket, minSamples }: { bucket: ConfidenceCalibrationBucket; minSamples: number }) {
+ * wired into position sizing. Shared by both Signer A's and Signer B's buckets --
+ * `label` is computed by the caller since the two use different tier vocabularies. */
+function CalibrationRow({ label, bucket, minSamples }: { label: string; bucket: CalibrationBucketLike; minSamples: number }) {
   return (
     <View style={styles.row}>
       <View style={styles.rowHeader}>
-        <Text style={styles.tierLabel}>{TIER_LABEL[bucket.tier]}</Text>
+        <Text style={styles.tierLabel}>{label}</Text>
         <Text style={styles.sampleCount}>{bucket.sampleSize} closed trades</Text>
       </View>
       {bucket.status === "insufficient_data" ? (
         <Text style={styles.insufficientText}>
-          Insufficient data — needs {minSamples}, have {bucket.sampleSize}. Using base risk only; no calibrated adjustment is
-          possible yet.
+          Insufficient data — needs {minSamples}, have {bucket.sampleSize}.
         </Text>
       ) : (
         <View style={styles.statsRow}>
@@ -49,6 +64,26 @@ function CalibrationRow({ bucket, minSamples }: { bucket: ConfidenceCalibrationB
   );
 }
 
+/** "Is Signer B actually pulling its weight, or just rubber-stamping Signer A" -- a
+ * fired signal always has Signer B agreeing on direction (decisionMatrix.ts holds on
+ * any disagreement/neutral read), so the interesting comparison is whether Signer B's
+ * own confidence level predicts real outcomes, not agree/disagree (always "agree"). RN
+ * port of forex-ai's app/settings/page.tsx SignerBScorecard. */
+function SignerBScorecard({ buckets, minSamples }: { buckets: SignerBCalibrationBucket[]; minSamples: number }) {
+  return (
+    <View style={styles.subsection}>
+      <Text style={styles.subsectionTitle}>Signer B (independent confirmation)</Text>
+      <Text style={styles.subtitle}>
+        Every fired signal already has Signer B agreeing with Signer A on direction — this checks whether Signer B&apos;s own
+        confidence level actually tracks real outcomes.
+      </Text>
+      {buckets.map((bucket) => (
+        <CalibrationRow key={bucket.tier} label={SIGNER_B_TIER_LABEL[bucket.tier]} bucket={bucket} minSamples={minSamples} />
+      ))}
+    </View>
+  );
+}
+
 export function ConfidenceCalibrationCard() {
   const api = useApi();
   const { data } = usePolling(() => api.get<JournalResponse>("/api/trade-journal"), POLL_INTERVAL_MS);
@@ -62,9 +97,13 @@ export function ConfidenceCalibrationCard() {
         Real historical performance per confidence tier — confidence-weighted sizing will only ever use these numbers once a
         tier has enough samples to trust, never the raw AI score alone.
       </Text>
-      {data.confidenceCalibration.map((bucket) => (
-        <CalibrationRow key={bucket.tier} bucket={bucket} minSamples={data.calibrationMinSamples} />
-      ))}
+      <View style={styles.subsection}>
+        <Text style={styles.subsectionTitle}>Signer A (SMC)</Text>
+        {data.confidenceCalibration.map((bucket) => (
+          <CalibrationRow key={bucket.tier} label={SIGNER_A_TIER_LABEL[bucket.tier]} bucket={bucket} minSamples={data.calibrationMinSamples} />
+        ))}
+      </View>
+      <SignerBScorecard buckets={data.signerBCalibration} minSamples={data.calibrationMinSamples} />
     </View>
   );
 }
@@ -73,6 +112,8 @@ const styles = StyleSheet.create({
   container: { gap: 10 },
   title: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: DashboardColors.textMuted },
   subtitle: { fontSize: 11, color: DashboardColors.textMuted, lineHeight: 15 },
+  subsection: { gap: 8, marginTop: 4 },
+  subsectionTitle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: DashboardColors.textMuted },
   row: { borderRadius: 12, borderWidth: 1, borderColor: DashboardColors.border, backgroundColor: DashboardColors.surfaceAlt, padding: 12, gap: 6 },
   rowHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   tierLabel: { fontSize: 13, fontWeight: "700", color: DashboardColors.textPrimary },
