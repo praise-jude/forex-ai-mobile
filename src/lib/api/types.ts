@@ -436,6 +436,10 @@ export interface NotificationPrefs {
   connectionAlerts: boolean;
   weeklyDigest: boolean;
   dailyDigest: boolean;
+  /** Fires when a restart (deploy, crash, host restart) silently drops Engine Mode back
+   * to its safe ANALYSIS default from LIVE/DEMO. Defaults ON: missing this one means
+   * believing you're still live-trading when you're not. */
+  engineModeAlerts: boolean;
   minConfidence: number;
 }
 
@@ -450,6 +454,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   // Defaults OFF, unlike weeklyDigest -- mirrors forex-ai's own default, since a
   // nightly push is a much higher-frequency ask than a weekly one.
   dailyDigest: false,
+  engineModeAlerts: true,
   minConfidence: 80,
 };
 

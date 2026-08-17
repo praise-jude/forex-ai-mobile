@@ -140,6 +140,12 @@ function NotificationSettingsSection() {
         onChange={(v) => setPref("dailyDigest", v)}
         disabled={disabled}
       />
+      <ToggleRow
+        label="Engine Mode reset alerts"
+        value={prefs?.engineModeAlerts ?? true}
+        onChange={(v) => setPref("engineModeAlerts", v)}
+        disabled={disabled}
+      />
       <StepperRow
         label="Minimum signal confidence"
         value={prefs?.minConfidence ?? 80}
