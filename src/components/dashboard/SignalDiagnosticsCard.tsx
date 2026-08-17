@@ -16,9 +16,11 @@ const POLL_INTERVAL_MS = 10000;
  * 15m/30m/1h engines last evaluated -- this card is a per-pair overview, not a
  * per-timeframe drilldown (PredictionCard.tsx already covers that on the Dashboard tab
  * for the selected pair/timeframe). RN port of forex-ai's SignalDiagnosticsPanel.tsx. */
-function latestForPair(predictions: PredictionUpdate[], pair: Pair): PredictionUpdate | undefined {
-  return predictions.filter((p) => p.pair === pair).sort((a, b) => b.time - a.time)[0];
+function latestForPair(predictions: PredictionUpdate[], pair: Pair, source: PredictionUpdate["source"]): PredictionUpdate | undefined {
+  return predictions.filter((p) => p.pair === pair && p.source === source).sort((a, b) => b.time - a.time)[0];
 }
+
+const ENGINE_LABEL: Record<"smc" | "mean_reversion", string> = { smc: "SMC", mean_reversion: "Range" };
 
 /** The most recent execution attempt for a signal, if any -- a fired signal with no
  * match here simply hasn't been approved/auto-fired yet. Never fabricated. */
@@ -53,6 +55,47 @@ function ExecutionStatus({ trade }: { trade: ExecutedTrade | undefined }) {
  * since each gates on its own screen's focus, only one is ever actually enabled at a
  * time, and usePolledResource makes that a real guarantee.
  */
+function EngineRow({ pair, source, data }: { pair: Pair; source: "smc" | "mean_reversion"; data: SignalsSnapshot }) {
+  const update = latestForPair(data.predictions, pair, source);
+  if (!update) {
+    return (
+      <View style={styles.pairRow}>
+        <Text style={styles.evaluating}>
+          <Text style={styles.engineLabel}>{ENGINE_LABEL[source]}</Text> — evaluating…
+        </Text>
+      </View>
+    );
+  }
+
+  const evaluation = update.evaluation;
+  const headline = predictionHeadline(evaluation);
+  const subline = predictionSubline(evaluation);
+  const signal = evaluation.status === "signal" ? evaluation.signal : null;
+  const trade = signal ? executionFor(data.executedTrades, signal.id) : undefined;
+
+  return (
+    <View style={styles.pairRow}>
+      <View style={styles.headerRow}>
+        <Text style={styles.engineLabel}>{ENGINE_LABEL[source]}</Text>
+        <DirectionBadge tone={HEADLINE_TONE[headline]} label={headline} />
+        <View style={styles.regimeChip}>
+          <Text style={styles.regimeChipText}>{REGIME_LABEL[update.regime]}</Text>
+        </View>
+        {signal && <Text style={styles.confidenceText}>{signal.confidence.toFixed(0)}% confidence</Text>}
+      </View>
+      {subline && <Text style={styles.sublineText}>{subline}</Text>}
+      <Text style={styles.detailText}>
+        {signal
+          ? `Qualifying ${signal.tier.replace("_", " ")} setup on ${signal.timeframe}.`
+          : evaluation.status === "no_trade"
+            ? describeNoTradeReason(evaluation.reason, update.regime)
+            : null}
+      </Text>
+      {signal && <ExecutionStatus trade={trade} />}
+    </View>
+  );
+}
+
 export const SignalDiagnosticsCard = memo(function SignalDiagnosticsCard() {
   const api = useApi();
   const isFocused = useIsFocused();
@@ -63,46 +106,13 @@ export const SignalDiagnosticsCard = memo(function SignalDiagnosticsCard() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Why is AutoPilot trading (or not) right now?</Text>
-      {PAIRS.map((pair) => {
-        const update = latestForPair(data.predictions, pair);
-        if (!update) {
-          return (
-            <View key={pair} style={styles.pairRow}>
-              <Text style={styles.evaluating}>
-                <Text style={styles.pairLabel}>{pair}</Text> — evaluating…
-              </Text>
-            </View>
-          );
-        }
-
-        const evaluation = update.evaluation;
-        const headline = predictionHeadline(evaluation);
-        const subline = predictionSubline(evaluation);
-        const signal = evaluation.status === "signal" ? evaluation.signal : null;
-        const trade = signal ? executionFor(data.executedTrades, signal.id) : undefined;
-
-        return (
-          <View key={pair} style={styles.pairRow}>
-            <View style={styles.headerRow}>
-              <Text style={styles.pairLabel}>{pair}</Text>
-              <DirectionBadge tone={HEADLINE_TONE[headline]} label={headline} />
-              <View style={styles.regimeChip}>
-                <Text style={styles.regimeChipText}>{REGIME_LABEL[update.regime]}</Text>
-              </View>
-              {signal && <Text style={styles.confidenceText}>{signal.confidence.toFixed(0)}% confidence</Text>}
-            </View>
-            {subline && <Text style={styles.sublineText}>{subline}</Text>}
-            <Text style={styles.detailText}>
-              {signal
-                ? `Qualifying ${signal.tier.replace("_", " ")} setup on ${signal.timeframe}.`
-                : evaluation.status === "no_trade"
-                  ? describeNoTradeReason(evaluation.reason, update.regime)
-                  : null}
-            </Text>
-            {signal && <ExecutionStatus trade={trade} />}
-          </View>
-        );
-      })}
+      {PAIRS.map((pair) => (
+        <View key={pair} style={styles.pairGroup}>
+          <Text style={styles.pairLabel}>{pair}</Text>
+          <EngineRow pair={pair} source="smc" data={data} />
+          <EngineRow pair={pair} source="mean_reversion" data={data} />
+        </View>
+      ))}
     </View>
   );
 });
@@ -112,7 +122,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: DashboardColors.textMuted, marginBottom: 2 },
   pairRow: { borderRadius: 10, borderWidth: 1, borderColor: DashboardColors.border, backgroundColor: DashboardColors.surfaceAlt, padding: 10, gap: 4 },
   headerRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-  pairLabel: { fontSize: 13, fontWeight: "700", color: DashboardColors.textPrimary, width: 62 },
+  pairGroup: { gap: 6 },
+  pairLabel: { fontSize: 13, fontWeight: "700", color: DashboardColors.textPrimary },
+  engineLabel: { fontSize: 11, fontWeight: "600", color: DashboardColors.textMuted, width: 46 },
   evaluating: { fontSize: 13, color: DashboardColors.textMuted },
   regimeChip: { backgroundColor: DashboardColors.surface, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   regimeChipText: { fontSize: 10, color: DashboardColors.textSecondary },

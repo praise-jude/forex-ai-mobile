@@ -56,10 +56,15 @@ export type Confluence =
   | "multi_timeframe"
   | "supertrend"
   | "currency_strength"
-  | "rsi_divergence";
+  | "rsi_divergence"
+  // rangeEngine.ts (mean-reversion) confluences below -- SMC never produces these.
+  | "range_regime"
+  | "boundary_touch"
+  | "rsi_extreme"
+  | "rejection_candle";
 
 export type ConfidenceTier = "strong_buy" | "buy" | "watch";
-export type SignalSource = "smc" | "tradingview";
+export type SignalSource = "smc" | "tradingview" | "mean_reversion";
 export type Session = "asia" | "london" | "newyork" | "off-session";
 
 export interface Signal {
@@ -141,7 +146,11 @@ export type NoTradeReason =
   // Everything else passed but the most recently closed 5-minute candle didn't confirm
   // the setup's own direction -- an on-demand REST check at decision time, never a live
   // subscription (see forex-ai's m5Confirmation.ts).
-  | { code: "m5_not_confirmed"; impliedDirection: "long" | "short" };
+  | { code: "m5_not_confirmed"; impliedDirection: "long" | "short" }
+  // --- rangeEngine.ts (mean-reversion) reasons below -- SMC never produces these. ---
+  | { code: "not_ranging"; regime: MarketRegime }
+  | { code: "no_boundary_touch" }
+  | { code: "range_below_threshold"; total: number; impliedDirection: "long" | "short" };
 
 export type SignalEvaluation = { status: "signal"; signal: Signal } | { status: "no_trade"; reason: NoTradeReason };
 
@@ -164,6 +173,10 @@ export interface HigherTimeframeTrends {
 export interface PredictionUpdate {
   pair: Pair;
   timeframe: Timeframe;
+  // Which engine produced this evaluation -- two independent engines (SMC,
+  // rangeEngine.ts's mean-reversion engine) can evaluate the same pair/timeframe
+  // without one shadowing the other's latest status server-side.
+  source: SignalSource;
   evaluation: SignalEvaluation;
   time: number;
   // Already present in the backend's JSON response (predictionStore.ts) -- these two
