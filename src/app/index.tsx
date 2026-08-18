@@ -1,6 +1,6 @@
 import { Link, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useApi } from "@/lib/api/client";
@@ -184,7 +184,7 @@ export default function DashboardScreen() {
   // and only one screen is ever focused at a time, this key is never actually polled
   // from two places at once; usePolledResource just makes that guarantee robust instead
   // of relying on the two components happening to agree.
-  const { data: snapshot, error: snapshotError } = usePolledResource(
+  const { data: snapshot, error: snapshotError, setData: setSnapshot } = usePolledResource(
     "signals",
     () => api.get<SignalsSnapshot>("/api/signals"),
     SIGNALS_POLL_MS,
@@ -193,7 +193,7 @@ export default function DashboardScreen() {
 
   // Confirmation Mode's own state -- drives whether SignalsList shows an execute
   // affordance at all ("signal_only") or the propose-then-approve flow ("confirm").
-  const { data: confirmationMode } = usePolling(
+  const { data: confirmationMode, setData: setConfirmationMode } = usePolling(
     () => api.get<ConfirmationModeResponse>("/api/confirmation-mode"),
     15000,
     isConfigured && isFocused
@@ -201,12 +201,34 @@ export default function DashboardScreen() {
   // Seeds the proposal card's default "Risk" figure -- the account's actually-configured
   // riskPerTradePct. EngineModeControl polls the exact same "engine-mode" key --
   // usePolledResource dedupes them into one shared interval/request instead of two.
-  const { data: engineModeData } = usePolledResource(
+  const { data: engineModeData, setData: setEngineMode } = usePolledResource(
     "engine-mode",
     () => api.get<EngineModeResponse>("/api/engine-mode"),
     7000,
     isConfigured && isFocused
   );
+
+  // Pull-to-refresh: forces an immediate re-fetch of everything this screen shows
+  // instead of waiting for the next poll tick. Pushes results through each hook's own
+  // setData (not just local state) so the shared poller cache (usePolledResource.ts's
+  // registry) updates too -- any other screen/component subscribed to the same
+  // "signals"/"engine-mode" keys benefits from the manual refresh as well. Same
+  // "keep showing the last known value, never throw" posture as the polling hooks
+  // themselves -- a failed refresh leaves stale data in place rather than surfacing an
+  // error the user didn't ask to see.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        api.get<SignalsSnapshot>("/api/signals").then(setSnapshot).catch(() => {}),
+        api.get<ConfirmationModeResponse>("/api/confirmation-mode").then(setConfirmationMode).catch(() => {}),
+        api.get<EngineModeResponse>("/api/engine-mode").then(setEngineMode).catch(() => {}),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [api, setSnapshot, setConfirmationMode, setEngineMode]);
 
   // Stabilization (reusing prior-render object references for unchanged items, so
   // Watchlist/SignalCard's own memoization isn't defeated by every poll tick's fresh
@@ -325,7 +347,10 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DashboardColors.textSecondary} />}
+      >
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Forex AI</Text>
