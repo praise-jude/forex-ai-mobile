@@ -14,6 +14,9 @@ const DECIMALS: Record<Pair, number> = {
   USOIL: 3,
   UKOIL: 3,
   "BTC/USD": 2,
+  "USD/CHF": 5,
+  "NZD/USD": 5,
+  "EUR/JPY": 3,
 };
 
 export function decimals(pair: Pair): number {
