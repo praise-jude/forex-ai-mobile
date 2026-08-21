@@ -19,6 +19,9 @@ const DECIMALS: Record<Pair, number> = {
   "EUR/JPY": 3,
   "AUD/JPY": 3,
   "ETH/USD": 2,
+  NFLX: 2,
+  MSFT: 2,
+  SPCX: 2,
 };
 
 export function decimals(pair: Pair): number {
