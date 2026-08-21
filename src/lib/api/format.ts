@@ -18,6 +18,7 @@ const DECIMALS: Record<Pair, number> = {
   "NZD/USD": 5,
   "EUR/JPY": 3,
   "AUD/JPY": 3,
+  "ETH/USD": 2,
 };
 
 export function decimals(pair: Pair): number {

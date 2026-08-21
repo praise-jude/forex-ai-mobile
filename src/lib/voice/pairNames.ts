@@ -19,6 +19,7 @@ export const PAIR_SPOKEN_NAMES: Record<Pair, string> = {
   "NZD/USD": "New Zealand Dollar against the US Dollar, N Z D U S D",
   "EUR/JPY": "Euro against the Japanese Yen, E U R J P Y",
   "AUD/JPY": "Australian Dollar against the Japanese Yen, A U D J P Y",
+  "ETH/USD": "Ethereum against the US Dollar, E T H U S D",
 };
 
 /** Ticker form used in the spoken confirmation phrase, e.g. "BTC/USD" -> "BTCUSD". */
@@ -33,6 +34,7 @@ const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
   ["XAU/USD", ["gold", "xau", "xauusd", "xau usd"]],
   ["XAG/USD", ["silver", "xag", "xagusd", "xag usd"]],
   ["BTC/USD", ["bitcoin", "btc", "btcusd", "btc usd"]],
+  ["ETH/USD", ["ethereum", "eth", "ethusd", "eth usd"]],
   ["USOIL", ["us oil", "crude oil", "wti", "usoil", "crude"]],
   ["UKOIL", ["uk oil", "brent oil", "brent", "ukoil"]],
   ["EUR/USD", ["eur usd", "eurusd", "euro dollar", "euro us dollar", "euro"]],
