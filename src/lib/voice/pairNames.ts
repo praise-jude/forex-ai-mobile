@@ -18,6 +18,7 @@ export const PAIR_SPOKEN_NAMES: Record<Pair, string> = {
   "USD/CHF": "US Dollar against the Swiss Franc, U S D C H F",
   "NZD/USD": "New Zealand Dollar against the US Dollar, N Z D U S D",
   "EUR/JPY": "Euro against the Japanese Yen, E U R J P Y",
+  "AUD/JPY": "Australian Dollar against the Japanese Yen, A U D J P Y",
 };
 
 /** Ticker form used in the spoken confirmation phrase, e.g. "BTC/USD" -> "BTCUSD". */
@@ -44,6 +45,9 @@ const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
   // Deliberately more specific than a bare "euro"/"yen" (already claimed by EUR/USD and
   // USD/JPY above, checked first) -- avoids EUR/JPY silently stealing either alias.
   ["EUR/JPY", ["eur jpy", "eurjpy", "euro yen"]],
+  // Same reasoning as EUR/JPY -- "aussie" and "yen" are already claimed by AUD/USD and
+  // USD/JPY above, so this needs its own more specific phrasing.
+  ["AUD/JPY", ["aud jpy", "audjpy", "aussie yen"]],
 ];
 
 /** Finds the first pair whose alias appears in the (already-lowercased) transcript. */

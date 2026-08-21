@@ -17,7 +17,8 @@ export type Pair =
   | "BTC/USD"
   | "USD/CHF"
   | "NZD/USD"
-  | "EUR/JPY";
+  | "EUR/JPY"
+  | "AUD/JPY";
 
 export const PAIRS: Pair[] = [
   "EUR/USD",
@@ -33,6 +34,7 @@ export const PAIRS: Pair[] = [
   "USD/CHF",
   "NZD/USD",
   "EUR/JPY",
+  "AUD/JPY",
 ];
 
 export interface Candle {
