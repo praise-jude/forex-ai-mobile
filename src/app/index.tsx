@@ -25,6 +25,7 @@ import {
 } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ConnectionStatusBadge } from "@/components/dashboard/ConnectionStatusBadge";
+import { MarketSessionsPanel } from "@/components/dashboard/MarketSessionsPanel";
 import { RiskGuardianBanner } from "@/components/dashboard/RiskGuardianBanner";
 import { Watchlist } from "@/components/dashboard/Watchlist";
 import { PriceChart } from "@/components/dashboard/PriceChart";
@@ -356,7 +357,10 @@ export default function DashboardScreen() {
             <Text style={styles.title}>Forex AI</Text>
             <Text style={styles.subtitle}>SMC signals · JUDE / OMINI</Text>
           </View>
-          <ConnectionStatusBadge />
+          <View style={styles.headerRight}>
+            <ConnectionStatusBadge />
+            <MarketSessionsPanel />
+          </View>
         </View>
 
         {snapshotError && <Text style={styles.errorBanner}>{snapshotError}</Text>}
@@ -403,6 +407,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: DashboardColors.background },
   scrollContent: { padding: 16, gap: 16, paddingBottom: 100 },
   header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  headerRight: { alignItems: "flex-end", gap: 6 },
   title: { fontSize: 20, fontWeight: "800", color: DashboardColors.textPrimary },
   subtitle: { fontSize: 12, color: DashboardColors.textMuted, marginTop: 2 },
   errorBanner: {
