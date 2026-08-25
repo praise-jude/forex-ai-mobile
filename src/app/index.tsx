@@ -33,6 +33,7 @@ import { PredictionCard } from "@/components/dashboard/PredictionCard";
 import { TimeframeSelector } from "@/components/dashboard/TimeframeSelector";
 import { SignalsList } from "@/components/dashboard/SignalsList";
 import { PositionsList } from "@/components/dashboard/PositionsList";
+import { OnDemandSignalCheck } from "@/components/dashboard/OnDemandSignalCheck";
 import { SignalToastStack, type ToastEntry } from "@/components/dashboard/SignalToast";
 import { VoiceAssistantPanel } from "@/components/dashboard/VoiceAssistantPanel";
 import { DisclaimerFooter } from "@/components/dashboard/DisclaimerFooter";
@@ -394,6 +395,8 @@ export default function DashboardScreen() {
         />
 
         <PositionsList />
+
+        <OnDemandSignalCheck />
 
         <DisclaimerFooter />
       </ScrollView>
