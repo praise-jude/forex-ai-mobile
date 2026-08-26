@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { formatRemaining } from "@/lib/api/format";
@@ -21,6 +21,7 @@ export function RiskGuardianBanner() {
   const { data, setData } = usePolling(() => api.get<RiskStatusResponse>("/api/risk-status"), POLL_INTERVAL_MS, isFocused);
   const [now, setNow] = useState(() => Date.now());
   const [acknowledging, setAcknowledging] = useState(false);
+  const [forceResuming, setForceResuming] = useState(false);
 
   async function acknowledge() {
     setAcknowledging(true);
@@ -32,6 +33,32 @@ export function RiskGuardianBanner() {
     } finally {
       setAcknowledging(false);
     }
+  }
+
+  // A deliberate override of an ACTIVE daily-loss halt, not the routine "condition
+  // already cleared" acknowledge() above -- confirmed separately since this re-arms
+  // trading on the exact account/day that just tripped the limit.
+  async function forceResume() {
+    setForceResuming(true);
+    try {
+      await api.post("/api/risk-status/force-resume");
+      if (data) setData({ ...data, haltedForToday: false, requiresAcknowledgement: false });
+    } catch {
+      // Best-effort, same posture as acknowledge() above.
+    } finally {
+      setForceResuming(false);
+    }
+  }
+
+  function confirmForceResume() {
+    Alert.alert(
+      "Force-resume trading today?",
+      "The daily loss limit already tripped -- this re-arms new trades on the same day, same account, before it would normally clear.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Force resume", style: "destructive", onPress: () => void forceResume() },
+      ]
+    );
   }
 
   useEffect(() => {
@@ -58,11 +85,16 @@ export function RiskGuardianBanner() {
     // guardian, independent of AutopilotLockControl.tsx's manual switch (deliberately
     // labeled "AUTO-EXECUTION LOCKED" instead to avoid being confused with this one).
     return (
-      <View style={[styles.banner, { borderColor: "#9f1239", backgroundColor: "rgba(159,18,57,0.25)" }]}>
-        <Text style={[styles.title, { color: DashboardColors.rose }]}>AUTOPILOT LOCKED</Text>
-        <Text style={styles.body}>
-          Daily loss limit ({data.maxDailyLossPct}%) reached on {data.account}. No new trades until the next trading day.
-        </Text>
+      <View style={[styles.banner, styles.haltedBanner]}>
+        <View style={styles.ackTextBlock}>
+          <Text style={[styles.title, { color: DashboardColors.rose }]}>AUTOPILOT LOCKED</Text>
+          <Text style={styles.body}>
+            Daily loss limit ({data.maxDailyLossPct}%) reached on {data.account}. No new trades until the next trading day.
+          </Text>
+        </View>
+        <Pressable disabled={forceResuming} onPress={confirmForceResume} style={[styles.forceResumeButton, forceResuming && styles.disabled]}>
+          <Text style={styles.forceResumeText}>{forceResuming ? "Resuming…" : "Force resume today"}</Text>
+        </Pressable>
       </View>
     );
   }
@@ -108,6 +140,23 @@ const styles = StyleSheet.create({
   body: { fontSize: 13, color: DashboardColors.textPrimary },
   loadingBanner: { borderColor: DashboardColors.border, backgroundColor: DashboardColors.surface },
   loadingText: { fontSize: 12, color: DashboardColors.textMuted },
+  haltedBanner: {
+    borderColor: "#9f1239",
+    backgroundColor: "rgba(159,18,57,0.25)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  forceResumeButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#9f1239",
+    backgroundColor: "rgba(136,19,55,0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  forceResumeText: { fontSize: 11, fontWeight: "700", color: DashboardColors.rose },
   ackBanner: {
     borderColor: "#b45309",
     backgroundColor: "rgba(180,83,9,0.25)",
