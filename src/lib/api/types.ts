@@ -150,6 +150,11 @@ export type NoTradeReason =
   | { code: "m5_not_confirmed"; impliedDirection: "long" | "short" }
   // --- rangeEngine.ts (mean-reversion) reasons below -- SMC never produces these. ---
   | { code: "not_ranging"; regime: MarketRegime }
+  // The regime read is "range"/"consolidation", but no real, tradeable range has been
+  // established yet (too little history, invalid ATR, no swing points, or too narrow) --
+  // distinct from no_boundary_touch below, where a real range DOES exist and just
+  // hasn't been touched yet.
+  | { code: "no_range_detected" }
   | { code: "no_boundary_touch" }
   | { code: "range_below_threshold"; total: number; impliedDirection: "long" | "short" };
 
