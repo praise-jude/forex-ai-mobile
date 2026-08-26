@@ -467,6 +467,9 @@ export interface NotificationPrefs {
    * informational -- narrates why the autopilot didn't fire, never changes whether it
    * does. Defaults ON. */
   autopilotBlocked: boolean;
+  /** Fires when the London/NY killzone window opens or closes -- the SMC engine's own
+   * FX/gold trading window. Purely informational. Defaults ON. */
+  sessionAlerts: boolean;
   minConfidence: number;
 }
 
@@ -483,6 +486,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   dailyDigest: false,
   engineModeAlerts: true,
   autopilotBlocked: true,
+  sessionAlerts: true,
   minConfidence: 80,
 };
 

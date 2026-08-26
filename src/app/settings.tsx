@@ -153,6 +153,12 @@ function NotificationSettingsSection() {
         onChange={(v) => setPref("autopilotBlocked", v)}
         disabled={disabled}
       />
+      <ToggleRow
+        label="Killzone opened/closed"
+        value={prefs?.sessionAlerts ?? true}
+        onChange={(v) => setPref("sessionAlerts", v)}
+        disabled={disabled}
+      />
       <StepperRow
         label="Minimum signal confidence"
         value={prefs?.minConfidence ?? 80}
