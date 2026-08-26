@@ -10,6 +10,7 @@ import { usePush } from "@/lib/push/PushContext";
 import { useVoiceSettings, type VoiceSettings } from "@/lib/voice/VoiceSettingsContext";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { EngineModeControl } from "@/components/dashboard/EngineModeControl";
+import { AutopilotLockControl } from "@/components/dashboard/AutopilotLockControl";
 import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
 import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
 import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
@@ -166,6 +167,8 @@ function TradingControlsSection() {
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Live controls</Text>
       <EngineModeControl />
+      <View style={styles.controlsDivider} />
+      <AutopilotLockControl />
       <View style={styles.controlsDivider} />
       <KillSwitchControl account="live" />
       <View style={styles.controlsDivider} />

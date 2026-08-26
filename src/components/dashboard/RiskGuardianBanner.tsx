@@ -54,6 +54,9 @@ export function RiskGuardianBanner() {
   const cooldownActive = data.cooldownUntil !== null && data.cooldownUntil > now;
 
   if (data.haltedForToday) {
+    // This "AUTOPILOT LOCKED" headline is this component's own automatic daily-loss
+    // guardian, independent of AutopilotLockControl.tsx's manual switch (deliberately
+    // labeled "AUTO-EXECUTION LOCKED" instead to avoid being confused with this one).
     return (
       <View style={[styles.banner, { borderColor: "#9f1239", backgroundColor: "rgba(159,18,57,0.25)" }]}>
         <Text style={[styles.title, { color: DashboardColors.rose }]}>AUTOPILOT LOCKED</Text>

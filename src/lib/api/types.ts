@@ -24,26 +24,11 @@ export type Pair =
   | "MSFT"
   | "SPCX";
 
-export const PAIRS: Pair[] = [
-  "EUR/USD",
-  "GBP/USD",
-  "USD/JPY",
-  "AUD/USD",
-  "USD/CAD",
-  "XAU/USD",
-  "XAG/USD",
-  "USOIL",
-  "UKOIL",
-  "BTC/USD",
-  "USD/CHF",
-  "NZD/USD",
-  "EUR/JPY",
-  "AUD/JPY",
-  "ETH/USD",
-  "NFLX",
-  "MSFT",
-  "SPCX",
-];
+// Trimmed to match forex-ai/lib/market/types.ts's own PAIRS -- the operator's chosen
+// "best 9" (7 FX majors + gold + one crypto). The Pair type union above is left
+// untouched (same reasoning as the web side: a historical trade record on a dropped
+// pair must still typecheck), only this monitored/tradable list is trimmed.
+export const PAIRS: Pair[] = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "XAU/USD", "BTC/USD"];
 
 export interface Candle {
   time: number;
@@ -291,6 +276,13 @@ export interface EngineModeResponse {
 export interface KillSwitchState {
   active: boolean;
   envControlled: boolean;
+}
+
+// Mirrors forex-ai/app/api/autopilot-lock/route.ts -- a dedicated switch for the
+// autopilot specifically (blocks only auto-execution, not manual trading), distinct
+// from KillSwitchState above.
+export interface AutopilotLockState {
+  locked: boolean;
 }
 
 // Mirrors lib/market/confirmationMode.ts on the web side -- "signal_only" shows no
