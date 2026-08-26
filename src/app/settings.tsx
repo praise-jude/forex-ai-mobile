@@ -159,6 +159,12 @@ function NotificationSettingsSection() {
         onChange={(v) => setPref("sessionAlerts", v)}
         disabled={disabled}
       />
+      <ToggleRow
+        label="Calibration progress"
+        value={prefs?.calibrationUpdates ?? true}
+        onChange={(v) => setPref("calibrationUpdates", v)}
+        disabled={disabled}
+      />
       <StepperRow
         label="Minimum signal confidence"
         value={prefs?.minConfidence ?? 80}

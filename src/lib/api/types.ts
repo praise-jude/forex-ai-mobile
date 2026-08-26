@@ -475,6 +475,10 @@ export interface NotificationPrefs {
   /** Fires when the London/NY killzone window opens or closes -- the SMC engine's own
    * FX/gold trading window. Purely informational. Defaults ON. */
   sessionAlerts: boolean;
+  /** Fires when a confidence tier (buy/strong_buy) crosses a real closed-trade milestone
+   * (10/20/30) toward calibration -- purely informational progress toward data that
+   * isn't wired into sizing until it clears that bar. Defaults ON. */
+  calibrationUpdates: boolean;
   minConfidence: number;
 }
 
@@ -492,6 +496,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   engineModeAlerts: true,
   autopilotBlocked: true,
   sessionAlerts: true,
+  calibrationUpdates: true,
   minConfidence: 80,
 };
 
