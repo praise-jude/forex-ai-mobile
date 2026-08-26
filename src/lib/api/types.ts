@@ -461,6 +461,12 @@ export interface NotificationPrefs {
    * to its safe ANALYSIS default from LIVE/DEMO. Defaults ON: missing this one means
    * believing you're still live-trading when you're not. */
   engineModeAlerts: boolean;
+  /** Fires when a signal that otherwise qualified was held back from auto-execution --
+   * correlated exposure, a risk limit, an existing losing position on the same
+   * pair+timeframe, or a lot size too small to clear the broker's minimum. Purely
+   * informational -- narrates why the autopilot didn't fire, never changes whether it
+   * does. Defaults ON. */
+  autopilotBlocked: boolean;
   minConfidence: number;
 }
 
@@ -476,6 +482,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   // nightly push is a much higher-frequency ask than a weekly one.
   dailyDigest: false,
   engineModeAlerts: true,
+  autopilotBlocked: true,
   minConfidence: 80,
 };
 

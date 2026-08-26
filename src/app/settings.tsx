@@ -147,6 +147,12 @@ function NotificationSettingsSection() {
         onChange={(v) => setPref("engineModeAlerts", v)}
         disabled={disabled}
       />
+      <ToggleRow
+        label="Autopilot signal held back"
+        value={prefs?.autopilotBlocked ?? true}
+        onChange={(v) => setPref("autopilotBlocked", v)}
+        disabled={disabled}
+      />
       <StepperRow
         label="Minimum signal confidence"
         value={prefs?.minConfidence ?? 80}
