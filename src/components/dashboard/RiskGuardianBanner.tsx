@@ -61,6 +61,30 @@ export function RiskGuardianBanner() {
     );
   }
 
+  // Same override shape as forceResume above, but for the consecutive-loss cooldown.
+  async function forceResumeCooldown() {
+    setForceResuming(true);
+    try {
+      await api.post("/api/risk-status/force-resume-cooldown");
+      if (data) setData({ ...data, cooldownUntil: null, consecutiveLosses: 0, requiresAcknowledgement: false });
+    } catch {
+      // Best-effort, same posture as acknowledge() above.
+    } finally {
+      setForceResuming(false);
+    }
+  }
+
+  function confirmForceResumeCooldown() {
+    Alert.alert(
+      "Force-resume trading now?",
+      `The ${data?.maxConsecutiveLosses ?? 3}-consecutive-loss cooldown already tripped -- this clears it before the timer would normally lift it.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Force resume", style: "destructive", onPress: () => void forceResumeCooldown() },
+      ]
+    );
+  }
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -101,11 +125,20 @@ export function RiskGuardianBanner() {
 
   if (cooldownActive && data.cooldownUntil) {
     return (
-      <View style={[styles.banner, { borderColor: "#b45309", backgroundColor: "rgba(180,83,9,0.25)" }]}>
-        <Text style={[styles.title, { color: DashboardColors.amber }]}>COOLDOWN ACTIVE</Text>
-        <Text style={styles.body}>
-          {data.maxConsecutiveLosses} consecutive losses on {data.account} — resumes in {formatRemaining(data.cooldownUntil, now)}.
-        </Text>
+      <View style={[styles.banner, styles.ackBanner]}>
+        <View style={styles.ackTextBlock}>
+          <Text style={[styles.title, { color: DashboardColors.amber }]}>COOLDOWN ACTIVE</Text>
+          <Text style={styles.body}>
+            {data.maxConsecutiveLosses} consecutive losses on {data.account} — resumes in {formatRemaining(data.cooldownUntil, now)}.
+          </Text>
+        </View>
+        <Pressable
+          disabled={forceResuming}
+          onPress={confirmForceResumeCooldown}
+          style={[styles.resumeButton, forceResuming && styles.disabled]}
+        >
+          <Text style={styles.resumeText}>{forceResuming ? "Resuming…" : "Force resume"}</Text>
+        </Pressable>
       </View>
     );
   }
