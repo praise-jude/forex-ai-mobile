@@ -11,16 +11,26 @@ import { ProgressBar } from "./ProgressBar";
 // screen's own poll interval for the same /api/trade-journal endpoint.
 const POLL_INTERVAL_MS = 15000;
 
+// Mirrors forex-ai's confidenceScore.ts real thresholds (WATCH_THRESHOLD=70,
+// BUY_THRESHOLD=80, STRONG_BUY_THRESHOLD=90) -- these were previously hardcoded as
+// "Buy (90-94)"/"Strong buy (95-100)"/"Watch (80-89)"/"No trade (<80)", which had
+// silently drifted out of sync with the real 70/80/90 boundaries tierOf() actually
+// uses. No server-side module to import the constants from here (client bundle), so
+// keep these three numbers in sync with confidenceScore.ts by hand if it's ever tuned.
+const WATCH_THRESHOLD = 70;
+const BUY_THRESHOLD = 80;
+const STRONG_BUY_THRESHOLD = 90;
+
 const SIGNER_A_TIER_LABEL: Record<"buy" | "strong_buy", string> = {
-  buy: "Buy (90-94)",
-  strong_buy: "Strong buy (95-100)",
+  buy: `Buy (${BUY_THRESHOLD}-${STRONG_BUY_THRESHOLD - 1})`,
+  strong_buy: `Strong buy (${STRONG_BUY_THRESHOLD}-100)`,
 };
 
 const SIGNER_B_TIER_LABEL: Record<DimensionTier, string> = {
-  no_trade: "No trade (<80)",
-  watch: "Watch (80-89)",
-  buy: "Buy (90-94)",
-  strong_buy: "Strong buy (95-100)",
+  no_trade: `No trade (<${WATCH_THRESHOLD})`,
+  watch: `Watch (${WATCH_THRESHOLD}-${BUY_THRESHOLD - 1})`,
+  buy: `Buy (${BUY_THRESHOLD}-${STRONG_BUY_THRESHOLD - 1})`,
+  strong_buy: `Strong buy (${STRONG_BUY_THRESHOLD}-100)`,
 };
 
 interface CalibrationBucketLike {
