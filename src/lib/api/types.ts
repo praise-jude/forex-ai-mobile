@@ -339,10 +339,15 @@ export type JournalCloseReason = "stop_loss" | "take_profit" | "invalidation" | 
 // never the rest of the breakdown.
 export interface JournalSignalContext {
   regime: MarketRegime;
-  setupQuality: { total: number };
+  /** Optional -- SMC-shaped, so the mean-reversion range engine's own context omits it
+   * rather than computing a meaningless score. Entries recorded before this field
+   * existed on the server also simply have it undefined. */
+  setupQuality?: { total: number };
   /** Optional -- entries recorded before this field existed on the server have it
    * undefined, never a fabricated guess at which confluences were present. */
   confluences?: Confluence[];
+  /** Which engine produced the signal -- optional, same reasoning as confluences above. */
+  source?: SignalSource;
 }
 
 export interface JournalEntry {
@@ -369,6 +374,8 @@ export interface PerformanceStats {
   winRate: number;
   averageR: number | null;
   maxDrawdownR: number | null;
+  /** Gross profit / gross loss. Null when there are no losing trades to divide by. */
+  profitFactor: number | null;
 }
 
 export interface SignalFunnelStats {
@@ -412,6 +419,9 @@ export interface JournalResponse {
   /** "Which market regime is my SMC strategy actually working in" -- effectively
    * SMC-only (context is only ever recorded for internally-generated SMC signals). */
   breakdownByRegime: Record<string, PerformanceStats>;
+  /** "Is the SMC engine or the mean-reversion range engine actually the one making
+   * money" -- NOT SMC-only, unlike breakdownByRegime above. */
+  breakdownBySource: Record<string, PerformanceStats>;
   breakdownByConfluence: ConfluenceBreakdownBucket[];
   slippage: SlippageStats;
   slippageByPair: Record<string, SlippageStats>;

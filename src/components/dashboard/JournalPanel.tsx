@@ -52,6 +52,7 @@ function StatTile({ label, value, hint, tone }: { label: string; value: string; 
 
 function StatsSummary({ stats, openCount }: { stats: PerformanceStats; openCount: number }) {
   const averageRTone = stats.averageR === null ? undefined : stats.averageR >= 0 ? "positive" : "negative";
+  const profitFactorTone = stats.profitFactor === null ? undefined : stats.profitFactor >= 1 ? "positive" : "negative";
 
   return (
     <View style={styles.statsGrid}>
@@ -62,6 +63,12 @@ function StatsSummary({ stats, openCount }: { stats: PerformanceStats; openCount
         label="Average R"
         value={stats.averageR === null ? "—" : `${stats.averageR >= 0 ? "+" : ""}${stats.averageR.toFixed(2)}R`}
         tone={averageRTone}
+      />
+      <StatTile
+        label="Profit factor"
+        value={stats.profitFactor === null ? "—" : stats.profitFactor.toFixed(2)}
+        hint="Gross profit / gross loss"
+        tone={profitFactorTone}
       />
       <StatTile label="Max drawdown" value={stats.maxDrawdownR === null ? "—" : `${stats.maxDrawdownR.toFixed(2)}R`} tone="negative" />
     </View>
@@ -105,6 +112,13 @@ const REGIME_LABEL: Record<string, string> = {
   low_volatility: "Low volatility",
   consolidation: "Consolidation",
   range: "Range",
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  smc: "SMC",
+  mean_reversion: "Range engine",
+  tradingview: "TradingView",
+  manual_test: "Manual test",
 };
 
 /** Which pairs/sessions performance is actually coming from -- a compact table (not
@@ -420,7 +434,7 @@ function EntryRow({ entry }: { entry: JournalEntry }) {
             {isLong ? "LONG" : "SHORT"}
           </Text>
           <Text style={styles.entryPair}>{entry.pair}</Text>
-          {entry.context && <Text style={styles.entryMuted}>Setup quality {entry.context.setupQuality.total}/100</Text>}
+          {entry.context?.setupQuality && <Text style={styles.entryMuted}>Setup quality {entry.context.setupQuality.total}/100</Text>}
         </View>
         <Text style={[styles.entryProfit, { color: inProfit ? DashboardColors.emerald : DashboardColors.rose }]}>
           {inProfit ? "+" : ""}
@@ -454,6 +468,7 @@ export function JournalPanel() {
       {data && <StatsSummary stats={data.stats} openCount={data.openCount} />}
       {data && <EquityCurveChart entries={data.entries} />}
       {data && <SignalFunnelSummary funnel={data.signalFunnel} />}
+      {data && <BreakdownTable title="Performance by engine" breakdown={data.breakdownBySource} labelFor={(key) => SOURCE_LABEL[key] ?? key} />}
       {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
       {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
       {data && (
