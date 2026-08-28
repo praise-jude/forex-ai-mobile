@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ExecuteResponse, HigherTimeframeTrends, Signal } from "@/lib/api/types";
 import { formatPrice } from "@/lib/api/format";
@@ -21,6 +21,10 @@ const NEWS_LABEL: Record<Signal["newsStatus"], string> = {
 function secondsRemaining(createdAt: number, ttlSeconds: number, now: number): number {
   return Math.max(0, Math.ceil((createdAt + ttlSeconds * 1000 - now) / 1000));
 }
+
+// Same as forex-ai's own TradeProposalCard.tsx -- how long an EXPIRED card stays
+// visible before it closes itself.
+const AUTO_DISMISS_AFTER_EXPIRED_MS = 4000;
 
 /**
  * The AI prepares the complete trade -- it never places it. Rendered in place of the
@@ -74,6 +78,20 @@ export function TradeProposalCard({
 
   const remaining = secondsRemaining(signal.createdAt, ttlSeconds, now);
   const expired = remaining <= 0;
+
+  // Same reasoning as forex-ai's own TradeProposalCard.tsx: auto-closes a few seconds
+  // after expiring instead of sitting there forever. Via a ref, not a dependency, so
+  // the per-second `now` tick above can't keep resetting this timer before it fires --
+  // it only (re)starts on the one real transition that matters, expired false -> true.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+  useEffect(() => {
+    if (!expired) return;
+    const timeoutId = setTimeout(() => onDismissRef.current(), AUTO_DISMISS_AFTER_EXPIRED_MS);
+    return () => clearTimeout(timeoutId);
+  }, [expired]);
   const isLong = signal.direction === "long";
   const riskPct = Number(riskInput) > 0 ? Number(riskInput) : defaultRiskPct;
 
