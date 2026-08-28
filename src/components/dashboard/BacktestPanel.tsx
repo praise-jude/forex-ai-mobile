@@ -190,13 +190,23 @@ function ResultsView({ job }: { job: BacktestJob }) {
   const { stats, profitFactor, sharpeRatio, streaks, scoreRangeBreakdown, openAtWindowEnd, perPair } = job.result;
   const averageRTone = stats.averageR === null ? undefined : stats.averageR >= 0 ? "positive" : "negative";
   const realistic = job.request.realistic === true;
+  // The run form's own Engine picker is just the NEXT run's config -- switching it
+  // after submitting doesn't change what a past result was actually produced by. This
+  // badge is the only place these numbers are unambiguously labeled by the engine that
+  // actually ran, not whatever the picker happens to currently show.
+  const engineLabel = job.request.engine === "mean_reversion" ? "Range engine" : "SMC";
 
   return (
     <View style={styles.resultsGap}>
-      <View style={[styles.modeBadge, realistic ? styles.modeBadgeRealistic : styles.modeBadgeIdealized]}>
-        <Text style={[styles.modeBadgeText, { color: realistic ? DashboardColors.sky : DashboardColors.textMuted }]}>
-          {realistic ? "Realistic mode" : "Idealized mode"}
-        </Text>
+      <View style={styles.badgeRow}>
+        <View style={[styles.modeBadge, styles.modeBadgeIdealized]}>
+          <Text style={[styles.modeBadgeText, { color: DashboardColors.textMuted }]}>{engineLabel}</Text>
+        </View>
+        <View style={[styles.modeBadge, realistic ? styles.modeBadgeRealistic : styles.modeBadgeIdealized]}>
+          <Text style={[styles.modeBadgeText, { color: realistic ? DashboardColors.sky : DashboardColors.textMuted }]}>
+            {realistic ? "Realistic mode" : "Idealized mode"}
+          </Text>
+        </View>
       </View>
       <DisclosureBanner realistic={realistic} />
 
@@ -358,6 +368,7 @@ const styles = StyleSheet.create({
   failedBox: { borderRadius: 12, borderWidth: 1, borderColor: DashboardColors.roseStrong, backgroundColor: DashboardColors.roseBg, padding: 14 },
   failedText: { fontSize: 13, color: DashboardColors.rose },
   resultsGap: { gap: 12 },
+  badgeRow: { flexDirection: "row", gap: 6 },
   modeBadge: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   modeBadgeRealistic: { backgroundColor: DashboardColors.skyBg },
   modeBadgeIdealized: { backgroundColor: DashboardColors.surfaceAlt },
