@@ -24,26 +24,11 @@ export type Pair =
   | "MSFT"
   | "SPCX";
 
-// Mirrors forex-ai/lib/market/types.ts's own PAIRS -- widened from 9 to 13 on
-// 2026-08-28 (see that file's own doc comment for the full reasoning: more
-// independent instruments, not a looser quality bar). The Pair type union above is
-// left untouched (same reasoning as the web side: a historical trade record on a
-// dropped pair must still typecheck), only this monitored/tradable list changes.
-export const PAIRS: Pair[] = [
-  "EUR/USD",
-  "GBP/USD",
-  "USD/JPY",
-  "AUD/USD",
-  "USD/CAD",
-  "USD/CHF",
-  "NZD/USD",
-  "XAU/USD",
-  "BTC/USD",
-  "XAG/USD",
-  "USOIL",
-  "UKOIL",
-  "ETH/USD",
-];
+// Mirrors forex-ai/lib/market/types.ts's own PAIRS -- widened 9->13 then reverted back
+// to 9 the same night (2026-08-28) after the 13-pair deploy caused a sustained live
+// subscription-downgrade storm on the web side. See that file's own doc comment for
+// the full incident.
+export const PAIRS: Pair[] = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "XAU/USD", "BTC/USD"];
 
 export interface Candle {
   time: number;
