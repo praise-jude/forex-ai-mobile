@@ -1,5 +1,5 @@
 import { Link, useIsFocused } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -247,6 +247,23 @@ export default function DashboardScreen() {
     setTrends(stabilizeTrendsMap(stableTrendsRef.current, buildTrendsMap(snapshot?.predictions ?? [])));
   }, [snapshot]);
 
+  // Same fix as forex-ai's own Dashboard.tsx tonight: a signal past its own TTL
+  // previously still showed a live-looking Buy/Sell button with no expiry awareness
+  // at all (only the opened TradeProposalCard tracked its own countdown). Ticked
+  // independently of confirmationMode's own 15s poll so a stale card actually
+  // disappears close to when it expires, not up to 15s late. Filters the already-
+  // stabilized `signals` array, so reference equality for surviving items is untouched.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tickId = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(tickId);
+  }, []);
+  const proposalTtlSeconds = confirmationMode?.proposalTtlSeconds ?? 120;
+  const activeSignals = useMemo(
+    () => signals.filter((signal) => now - signal.createdAt <= proposalTtlSeconds * 1000),
+    [signals, proposalTtlSeconds, now]
+  );
+
   const predictions = buildPredictionMap(snapshot?.predictions ?? []);
   const selectedPrediction = predictions[selectedPair]?.[selectedTimeframe] ?? null;
 
@@ -383,11 +400,11 @@ export default function DashboardScreen() {
         </View>
 
         <SignalsList
-          signals={signals}
+          signals={activeSignals}
           statuses={localStatuses}
           trends={trends}
           manualMode={confirmationMode?.manualMode ?? "confirm"}
-          ttlSeconds={confirmationMode?.proposalTtlSeconds ?? 120}
+          ttlSeconds={proposalTtlSeconds}
           defaultRiskPct={engineModeData?.riskPerTradePct ?? 1}
           onApprove={approveSignal}
           onReject={rejectSignal}
