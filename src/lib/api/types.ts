@@ -546,6 +546,9 @@ export interface BacktestRequest {
   timeframe: Timeframe;
   lookbackDays?: number;
   realistic?: boolean;
+  /** Which engine to backtest -- defaults to "smc" server-side when omitted. Mirrors
+   * forex-ai's own BacktestRequest. */
+  engine?: "smc" | "mean_reversion";
 }
 
 export type BacktestStatus = "queued" | "running" | "completed" | "failed" | "cancelled";

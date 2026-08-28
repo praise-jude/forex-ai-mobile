@@ -63,6 +63,7 @@ function RunForm({ onStart, busy, disabled }: { onStart: (request: BacktestReque
   const [selectedPairs, setSelectedPairs] = useState<Pair[]>([]);
   const [allPairs, setAllPairs] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
+  const [engine, setEngine] = useState<"smc" | "mean_reversion">("smc");
   const [lookbackDays, setLookbackDays] = useState(String(DEFAULT_LOOKBACK_DAYS));
   const [realistic, setRealistic] = useState(false);
 
@@ -94,6 +95,18 @@ function RunForm({ onStart, busy, disabled }: { onStart: (request: BacktestReque
           })}
         </View>
       )}
+
+      <Text style={styles.formLabel}>Engine</Text>
+      <View style={styles.chipRow}>
+        {(["smc", "mean_reversion"] as const).map((eng) => {
+          const selected = eng === engine;
+          return (
+            <Pressable key={eng} onPress={() => setEngine(eng)} style={[styles.chip, selected && styles.chipSelected]}>
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{eng === "smc" ? "SMC" : "Range engine"}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Text style={styles.formLabel}>Timeframe</Text>
       <View style={styles.chipRow}>
@@ -131,7 +144,7 @@ function RunForm({ onStart, busy, disabled }: { onStart: (request: BacktestReque
 
       <Pressable
         disabled={!canSubmit}
-        onPress={() => onStart({ pairs: effectivePairs, timeframe, lookbackDays: parsedLookback, realistic })}
+        onPress={() => onStart({ pairs: effectivePairs, timeframe, lookbackDays: parsedLookback, realistic, engine })}
         style={[styles.runButton, !canSubmit && styles.disabled]}
       >
         {busy ? <ActivityIndicator size="small" color="#04202f" /> : <Text style={styles.runButtonText}>Run backtest</Text>}
