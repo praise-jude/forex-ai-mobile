@@ -29,6 +29,11 @@ export async function registerForPushNotificationsAsync(): Promise<PushTokenResu
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#208AEF",
+      // Explicit, not left to Android's own per-channel default -- the server already
+      // sends `sound: "default"` on every push (pushNotifier.ts), but that only takes
+      // effect if the CHANNEL itself doesn't override it. Confirmed real user request:
+      // a signal/trade notification should genuinely ring, not just vibrate silently.
+      sound: "default",
     });
   }
 
