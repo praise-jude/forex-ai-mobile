@@ -6,7 +6,12 @@ import { formatPrice } from "@/lib/api/format";
 import type { OpenPosition, PositionRiskAssessment, PositionsResponse } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
-const POLL_INTERVAL_MS = 7000;
+// Same fix as forex-ai's own PositionsPanel.tsx tonight: 1s instead of 7s so the P/L
+// number feels like it's actually counting, matching Exness's own platform -- safe to
+// poll this fast since getOpenPositions is a cheap read of MetaApi's already-synced
+// local terminal state, never a live broker round-trip. Already gated on `isFocused`
+// below, so this only runs while the screen is actually visible.
+const POLL_INTERVAL_MS = 1000;
 
 const RISK_BADGE_COLOR: Record<PositionRiskAssessment["level"], string> = {
   aligned: DashboardColors.textMuted,
