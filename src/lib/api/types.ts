@@ -244,9 +244,19 @@ export interface SignalsSnapshot {
   predictions: PredictionUpdate[];
 }
 
+// Mirrors forex-ai's own types.ts -- "is the market still backing this open position,
+// or has it turned against it" (see positionRiskNarration.ts on the server).
+export type PositionRiskLevel = "aligned" | "caution" | "warning";
+
+export interface PositionRiskAssessment {
+  level: PositionRiskLevel;
+  reason: string;
+}
+
 export interface PositionsResponse {
   account: AccountKey;
   positions: OpenPosition[];
+  risk: Record<string, PositionRiskAssessment>;
   tradesToday: number;
 }
 

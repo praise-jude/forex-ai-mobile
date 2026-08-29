@@ -3,12 +3,24 @@ import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatPrice } from "@/lib/api/format";
-import type { OpenPosition, PositionsResponse } from "@/lib/api/types";
+import type { OpenPosition, PositionRiskAssessment, PositionsResponse } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
 const POLL_INTERVAL_MS = 7000;
 
-function PositionRow({ position }: { position: OpenPosition }) {
+const RISK_BADGE_COLOR: Record<PositionRiskAssessment["level"], string> = {
+  aligned: DashboardColors.textMuted,
+  caution: DashboardColors.amber,
+  warning: DashboardColors.rose,
+};
+
+const RISK_BADGE_LABEL: Record<PositionRiskAssessment["level"], string> = {
+  aligned: "Aligned",
+  caution: "Caution",
+  warning: "Warning",
+};
+
+function PositionRow({ position, risk }: { position: OpenPosition; risk: PositionRiskAssessment | undefined }) {
   const isLong = position.direction === "long";
   const inProfit = position.profit >= 0;
 
@@ -32,6 +44,14 @@ function PositionRow({ position }: { position: OpenPosition }) {
           {formatPrice(position.pair, position.openPrice)} → {formatPrice(position.pair, position.currentPrice)}
         </Text>
       </View>
+      {risk && (
+        <View style={styles.riskLine}>
+          <View style={[styles.riskBadge, { backgroundColor: `${RISK_BADGE_COLOR[risk.level]}26` }]}>
+            <Text style={[styles.riskBadgeText, { color: RISK_BADGE_COLOR[risk.level] }]}>{RISK_BADGE_LABEL[risk.level]}</Text>
+          </View>
+          {risk.level !== "aligned" && <Text style={styles.riskReason}>{risk.reason}</Text>}
+        </View>
+      )}
     </View>
   );
 }
@@ -54,7 +74,7 @@ export function PositionsList() {
       ) : (
         <View style={styles.list}>
           {data.positions.map((position) => (
-            <PositionRow key={position.id} position={position} />
+            <PositionRow key={position.id} position={position} risk={data.risk[position.id]} />
           ))}
         </View>
       )}
@@ -76,4 +96,8 @@ const styles = StyleSheet.create({
   profit: { fontSize: 12, fontWeight: "700" },
   bottomLine: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
   meta: { fontSize: 11, color: DashboardColors.textMuted },
+  riskLine: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: DashboardColors.border },
+  riskBadge: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
+  riskBadgeText: { fontSize: 9, fontWeight: "700" },
+  riskReason: { flex: 1, fontSize: 10.5, lineHeight: 14, color: DashboardColors.textMuted },
 });
