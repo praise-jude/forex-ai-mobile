@@ -251,6 +251,10 @@ export type PositionRiskLevel = "aligned" | "caution" | "warning";
 export interface PositionRiskAssessment {
   level: PositionRiskLevel;
   reason: string;
+  /** Mirrors forex-ai's web PositionRiskAssessment -- the single opposing timeframe's
+   * EMA20/50 gap, only ever set for "caution" (a real distance to measure). Smaller
+   * means closer to clearing; never a time estimate. */
+  distancePct: number | null;
 }
 
 export interface PositionsResponse {

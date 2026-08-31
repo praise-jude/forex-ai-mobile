@@ -54,7 +54,16 @@ function PositionRow({ position, risk }: { position: OpenPosition; risk: Positio
           <View style={[styles.riskBadge, { backgroundColor: `${RISK_BADGE_COLOR[risk.level]}26` }]}>
             <Text style={[styles.riskBadgeText, { color: RISK_BADGE_COLOR[risk.level] }]}>{RISK_BADGE_LABEL[risk.level]}</Text>
           </View>
-          {risk.level !== "aligned" && <Text style={styles.riskReason}>{risk.reason}</Text>}
+          {risk.level !== "aligned" && (
+            <View style={styles.riskTextGroup}>
+              <Text style={styles.riskReason}>{risk.reason}</Text>
+              {/* Mirrors forex-ai's web PositionsPanel.tsx -- only ever set for
+                  "caution", a real current distance, never a time estimate. */}
+              {risk.distancePct !== null && (
+                <Text style={styles.riskDistance}>Gap: {risk.distancePct.toFixed(2)}% (smaller = closer to clearing)</Text>
+              )}
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -104,5 +113,7 @@ const styles = StyleSheet.create({
   riskLine: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: DashboardColors.border },
   riskBadge: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
   riskBadgeText: { fontSize: 9, fontWeight: "700" },
-  riskReason: { flex: 1, fontSize: 10.5, lineHeight: 14, color: DashboardColors.textMuted },
+  riskTextGroup: { flex: 1, gap: 2 },
+  riskReason: { fontSize: 10.5, lineHeight: 14, color: DashboardColors.textMuted },
+  riskDistance: { fontSize: 9.5, lineHeight: 13, color: DashboardColors.textMuted, opacity: 0.75 },
 });
