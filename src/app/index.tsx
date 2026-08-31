@@ -31,6 +31,7 @@ import { Watchlist } from "@/components/dashboard/Watchlist";
 import { PriceChart } from "@/components/dashboard/PriceChart";
 import { PredictionCard } from "@/components/dashboard/PredictionCard";
 import { TimeframeSelector } from "@/components/dashboard/TimeframeSelector";
+import { TrendDirectionBadge } from "@/components/dashboard/TrendDirectionBadge";
 import { SignalsList } from "@/components/dashboard/SignalsList";
 import { PositionsList } from "@/components/dashboard/PositionsList";
 import { OnDemandSignalCheck } from "@/components/dashboard/OnDemandSignalCheck";
@@ -390,6 +391,9 @@ export default function DashboardScreen() {
         <Watchlist entries={watchlist} selectedPair={selectedPair} onSelect={setSelectedPair} />
 
         <View style={styles.timeframeRow}>
+          <View style={styles.trendBadgeSlot}>
+            <TrendDirectionBadge trends={selectedPrediction?.trends} />
+          </View>
           <TimeframeSelector value={selectedTimeframe} onChange={setSelectedTimeframe} />
         </View>
 
@@ -437,7 +441,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
   },
-  timeframeRow: { flexDirection: "row", justifyContent: "flex-end" },
+  timeframeRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
+  // Pushes the badge to the opposite edge from TimeframeSelector when present, without
+  // shifting TimeframeSelector's own position when it isn't (no trends data yet) --
+  // unlike web's equivalent row, there's no persistent pair-name text here to anchor the
+  // left side, so `justifyContent: "space-between"` alone would visibly jump
+  // TimeframeSelector to the left during the brief pre-first-evaluation window.
+  trendBadgeSlot: { marginRight: "auto" },
   card: {
     borderRadius: 14,
     borderWidth: 1,
