@@ -35,6 +35,7 @@ import { TrendDirectionBadge } from "@/components/dashboard/TrendDirectionBadge"
 import { SignalsList } from "@/components/dashboard/SignalsList";
 import { PositionsList } from "@/components/dashboard/PositionsList";
 import { OnDemandSignalCheck } from "@/components/dashboard/OnDemandSignalCheck";
+import { ManualTradeCheck } from "@/components/dashboard/ManualTradeCheck";
 import { SignalToastStack, type ToastEntry } from "@/components/dashboard/SignalToast";
 import { VoiceAssistantPanel } from "@/components/dashboard/VoiceAssistantPanel";
 import { DisclaimerFooter } from "@/components/dashboard/DisclaimerFooter";
@@ -418,6 +419,8 @@ export default function DashboardScreen() {
         <PositionsList />
 
         <OnDemandSignalCheck />
+
+        <ManualTradeCheck />
 
         <DisclaimerFooter />
       </ScrollView>

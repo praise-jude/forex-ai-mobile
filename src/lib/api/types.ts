@@ -75,7 +75,7 @@ export type Confluence =
   | "rejection_candle";
 
 export type ConfidenceTier = "strong_buy" | "buy" | "watch";
-export type SignalSource = "smc" | "tradingview" | "mean_reversion";
+export type SignalSource = "smc" | "tradingview" | "mean_reversion" | "manual" | "manual_test";
 export type Session = "asia" | "london" | "newyork" | "off-session";
 
 export interface Signal {
