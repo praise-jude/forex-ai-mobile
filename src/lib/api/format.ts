@@ -68,3 +68,12 @@ export function formatDurationApprox(ms: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 }
+
+/** Mirrors forex-ai/lib/market/format.ts's own formatDurationRange -- a "typical
+ * window" readout (e.g. a duration bucket's p25Ms-p75Ms), collapsed to one figure when
+ * both ends round to the same display string. */
+export function formatDurationRange(loMs: number, hiMs: number): string {
+  const lo = formatDurationApprox(loMs);
+  const hi = formatDurationApprox(hiMs);
+  return lo === hi ? lo : `${lo}–${hi}`;
+}

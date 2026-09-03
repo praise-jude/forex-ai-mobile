@@ -221,6 +221,10 @@ export interface OpenPosition {
   takeProfit?: number;
   profit: number;
   clientId?: string;
+  /** Mirrors forex-ai's own OpenPosition.openedAt -- this field already comes back on
+   * /api/positions today, it just wasn't declared here (a real drift in this hand-copied
+   * mirror). Undefined for a position opened directly on the broker outside either app. */
+  openedAt?: number;
 }
 
 export type ExecutionStatus = "pending" | "filled" | "rejected";
@@ -416,6 +420,11 @@ export interface DurationBucket {
   sampleSize: number;
   status: "calibrated" | "insufficient_data";
   medianMs: number | null;
+  /** 25th/75th percentile duration -- a real "typical window" (most past trades
+   * resolved somewhere between these two), not a bare min/max. Both null under the
+   * same "insufficient_data" condition as medianMs. */
+  p25Ms: number | null;
+  p75Ms: number | null;
 }
 
 export interface DurationStats {

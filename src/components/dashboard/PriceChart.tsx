@@ -4,7 +4,7 @@ import Svg, { Line, Polyline, Rect } from "react-native-svg";
 import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
-import { formatDurationApprox, formatPrice } from "@/lib/api/format";
+import { formatDurationRange, formatPrice } from "@/lib/api/format";
 import type { Candle, DurationStats, Pair, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
@@ -19,11 +19,11 @@ const DURATION_POLL_INTERVAL_MS = 5 * 60_000;
  * claim about the specific signal currently shown. */
 function describeDurationStats(stats: DurationStats | null): string {
   const parts: string[] = [];
-  if (stats?.takeProfit.status === "calibrated" && stats.takeProfit.medianMs !== null) {
-    parts.push(`TP in ~${formatDurationApprox(stats.takeProfit.medianMs)} (${stats.takeProfit.sampleSize} trades)`);
+  if (stats?.takeProfit.status === "calibrated" && stats.takeProfit.p25Ms !== null && stats.takeProfit.p75Ms !== null) {
+    parts.push(`TP in ${formatDurationRange(stats.takeProfit.p25Ms, stats.takeProfit.p75Ms)} (${stats.takeProfit.sampleSize} trades)`);
   }
-  if (stats?.stopLoss.status === "calibrated" && stats.stopLoss.medianMs !== null) {
-    parts.push(`SL in ~${formatDurationApprox(stats.stopLoss.medianMs)} (${stats.stopLoss.sampleSize} trades)`);
+  if (stats?.stopLoss.status === "calibrated" && stats.stopLoss.p25Ms !== null && stats.stopLoss.p75Ms !== null) {
+    parts.push(`SL in ${formatDurationRange(stats.stopLoss.p25Ms, stats.stopLoss.p75Ms)} (${stats.stopLoss.sampleSize} trades)`);
   }
   if (parts.length > 0) return `Similar past trades: ${parts.join(" · ")}`;
   return "Similar-trade timing: not enough closed trades on this pair yet";
