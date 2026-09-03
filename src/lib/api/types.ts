@@ -38,7 +38,13 @@ export type Pair =
 // backend's own PAIRS no longer recognizes, and /api/signals/evaluate/publish's
 // isPlausibleSignal check (PAIRS.includes(s.pair)) rejects it with a 400 -- confirmed
 // as the real cause of a live "request fail 400" report, not a guess.
-export const PAIRS: Pair[] = ["GBP/USD", "USD/CAD", "USD/CHF", "NZD/USD", "XAU/USD", "BTC/USD", "USOIL"];
+//
+// USD/CAD and NZD/USD dropped down to today's 5, mirroring the web app's own follow-up
+// PAIRS change -- same reasoning, same failure mode if this list is left to drift again
+// (a mobile-built signal for either pair gets rejected 400 by the web backend, and
+// BacktestPanel's "all pairs" run would otherwise still include two pairs the web app
+// itself no longer tracks or has current subscriptions/candle history for).
+export const PAIRS: Pair[] = ["GBP/USD", "USD/CHF", "XAU/USD", "BTC/USD", "USOIL"];
 
 export interface Candle {
   time: number;
