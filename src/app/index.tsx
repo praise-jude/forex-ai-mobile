@@ -273,11 +273,13 @@ export default function DashboardScreen() {
     setToasts((prev) => prev.filter((t) => t.key !== key));
   }, []);
 
-  // The same function both SignalsList's Approve button and the voice assistant's
-  // hard-confirm path call -- voice execution is never a separate code path, so it can
-  // never bypass the backend's risk checks. Builds the exact same confirmation phrase
-  // the execute route itself requires (buildConfirmPhrase, shared with voice) so callers
-  // here never need to know about it individually.
+  // Called only from SignalsList's Approve button (and OnDemandSignalCheck/
+  // ManualTradeCheck's own place-trade buttons) -- NOT from voice, by explicit operator
+  // request (2026-09-03): a spoken "CONFIRM ..." used to call this directly too, and the
+  // operator wants every real-money execution gated on an actual button press while
+  // using the phone. See useVoiceAssistant's own "hard_confirm" case for the voice side
+  // of this. Builds the exact same confirmation phrase the execute route itself requires
+  // (buildConfirmPhrase) so callers here never need to know about it individually.
   const executeSignal = useCallback(
     async (signal: Signal, riskPctOverride?: number) => {
       setLocalStatuses((prev) => ({ ...prev, [signal.id]: { state: "loading" } }));
@@ -305,7 +307,6 @@ export default function DashboardScreen() {
   const voice = useVoiceAssistant({
     signals,
     statuses: localStatuses,
-    executeSignal: (signal) => void executeSignal(signal),
     selectedPair,
     selectedTimeframe,
     predictions,

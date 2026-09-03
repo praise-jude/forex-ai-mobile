@@ -21,12 +21,9 @@ export type RecorderStatus = "idle" | "recording" | "transcribing" | "speaking";
 export interface UseVoiceAssistantOptions {
   signals: Signal[];
   /** Same map Dashboard passes to SignalsList -- watched here to narrate the real outcome
-   * once `executeSignal` resolves, whichever control (voice or the plain Buy/Sell button)
-   * triggered it (see the web app's identical pattern in useVoiceAssistant.ts). */
+   * once the operator approves a trade (via the Approve button; see the "hard_confirm"
+   * case's own doc comment on why voice itself no longer executes anything). */
   statuses: Record<string, CardStatus>;
-  /** The exact same function passed to SignalsList -- voice execution is never a separate
-   * code path from the manual button, so it can never bypass the backend's risk checks. */
-  executeSignal: (signal: Signal) => void;
   /** Only the currently selected pair's prediction changes are ever spoken -- see
    * onPredictionChange. */
   selectedPair: Pair;
@@ -62,7 +59,6 @@ export interface VoiceAssistantState {
 export function useVoiceAssistant({
   signals,
   statuses,
-  executeSignal,
   selectedPair,
   selectedTimeframe,
   predictions,
@@ -173,11 +169,15 @@ export function useVoiceAssistant({
 
     switch (command.kind) {
       case "hard_confirm":
+        // Voice no longer places a real trade on its own, by explicit operator request
+        // (2026-09-03): a spoken phrase used to call executeSignal directly here, the
+        // same real-money path the Approve button uses -- now it only ever narrates and
+        // points at the button; the button is the sole way to actually execute. Signal
+        // stays pending (pendingRef/pendingSignal untouched) so the statuses watcher
+        // effect below still narrates the real fill/reject/blocked outcome once the
+        // operator taps Approve themselves.
         if (!pending) return;
-        // Resolution (speaking the fill/reject/blocked result) happens in the `statuses`
-        // watcher effect below, not here -- that effect fires however the execution
-        // resolves, not just for this specific call.
-        executeSignal(pending);
+        await say("Voice confirmation is off for placing trades -- tap Approve on the card to confirm this one.");
         return;
       case "decline":
         if (pending) {
