@@ -402,6 +402,21 @@ export interface PerformanceStats {
   profitFactor: number | null;
 }
 
+/** Mirrors forex-ai's tradeJournal.ts DurationBucket -- served by the shared
+ * /api/trade-journal/duration endpoint, same status/sampleSize convention as the web
+ * dashboard's confidence-calibration buckets ("insufficient_data" below a minimum
+ * sample size, never a number computed from too few trades to mean anything). */
+export interface DurationBucket {
+  sampleSize: number;
+  status: "calibrated" | "insufficient_data";
+  medianMs: number | null;
+}
+
+export interface DurationStats {
+  takeProfit: DurationBucket;
+  stopLoss: DurationBucket;
+}
+
 export interface SignalFunnelStats {
   approved: number;
   rejected: number;

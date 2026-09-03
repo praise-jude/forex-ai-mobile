@@ -4,11 +4,30 @@ import Svg, { Line, Polyline, Rect } from "react-native-svg";
 import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
-import { formatPrice } from "@/lib/api/format";
-import type { Candle, Pair, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
+import { formatDurationApprox, formatPrice } from "@/lib/api/format";
+import type { Candle, DurationStats, Pair, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
 const POLL_INTERVAL_MS = 5000;
+// Real closed-trade duration data changes only when a trade closes -- far rarer than
+// candles ticking, so this gets its own slower interval instead of piggybacking on
+// POLL_INTERVAL_MS. Mirrors forex-ai's own PriceChart.tsx DURATION_STATS_POLL_MS.
+const DURATION_POLL_INTERVAL_MS = 5 * 60_000;
+
+/** Mirrors forex-ai's PriceChart.tsx describeDurationStats -- see that function's own
+ * doc comment for why this is a historical read on similar past trades, never a timing
+ * claim about the specific signal currently shown. */
+function describeDurationStats(stats: DurationStats | null): string {
+  const parts: string[] = [];
+  if (stats?.takeProfit.status === "calibrated" && stats.takeProfit.medianMs !== null) {
+    parts.push(`TP in ~${formatDurationApprox(stats.takeProfit.medianMs)} (${stats.takeProfit.sampleSize} trades)`);
+  }
+  if (stats?.stopLoss.status === "calibrated" && stats.stopLoss.medianMs !== null) {
+    parts.push(`SL in ~${formatDurationApprox(stats.stopLoss.medianMs)} (${stats.stopLoss.sampleSize} trades)`);
+  }
+  if (parts.length > 0) return `Similar past trades: ${parts.join(" · ")}`;
+  return "Similar-trade timing: not enough closed trades on this pair yet";
+}
 const CHART_HEIGHT = 220;
 const MAX_CANDLES = 60;
 // Smaller than the web dashboard's forecast spacing (8 bars) -- this chart has a fixed
@@ -29,6 +48,11 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
   const { data, error } = usePolling(
     () => api.get<{ pair: Pair; timeframe: Timeframe; candles: Candle[] }>(`/api/candles?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}`),
     POLL_INTERVAL_MS,
+    isFocused
+  );
+  const { data: durationStats } = usePolling(
+    () => api.get<DurationStats>(`/api/trade-journal/duration?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}`),
+    DURATION_POLL_INTERVAL_MS,
     isFocused
   );
 
@@ -72,7 +96,10 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
         )}
       </View>
       {signal && (
-        <Text style={styles.forecastBadge}>AI FORECAST &middot; PROJECTED PATH (illustrative, not a price prediction)</Text>
+        <>
+          <Text style={styles.forecastBadge}>AI FORECAST &middot; PROJECTED PATH (illustrative, not a price prediction)</Text>
+          <Text style={styles.forecastBadge}>{describeDurationStats(durationStats)}</Text>
+        </>
       )}
     </View>
   );

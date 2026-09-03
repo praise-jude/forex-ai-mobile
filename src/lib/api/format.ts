@@ -55,3 +55,16 @@ export function formatAgo(lastUpdateAt: number | null, nowMs: number): string {
   const minutes = Math.round(seconds / 60);
   return `updated ${minutes}m ago`;
 }
+
+/** Mirrors forex-ai/lib/market/format.ts's own formatDurationApprox -- a static
+ * "typical duration" figure (e.g. a median time-to-target), not a live-counting
+ * elapsed timer, so it adds a days tier and drops seconds precision entirely. */
+export function formatDurationApprox(ms: number): string {
+  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
