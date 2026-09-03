@@ -28,7 +28,17 @@ export type Pair =
 // to 9 the same night (2026-08-28) after the 13-pair deploy caused a sustained live
 // subscription-downgrade storm on the web side. See that file's own doc comment for
 // the full incident.
-export const PAIRS: Pair[] = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "XAU/USD", "BTC/USD"];
+//
+// EUR/USD, USD/JPY, and AUD/USD dropped (and USOIL added) on 2026-09-02, mirroring the
+// web app's own PAIRS change the same night (real, sustained MetaApi credit-limit
+// throttling on BTC/USD and USOIL specifically -- see that file's doc comment). This
+// list had drifted out of sync with the web app for a few hours after that change,
+// which broke "Check a pair" -> Place Trade from this app for any of the three dropped
+// pairs: the mobile client would build and submit a signal for a pair the web
+// backend's own PAIRS no longer recognizes, and /api/signals/evaluate/publish's
+// isPlausibleSignal check (PAIRS.includes(s.pair)) rejects it with a 400 -- confirmed
+// as the real cause of a live "request fail 400" report, not a guess.
+export const PAIRS: Pair[] = ["GBP/USD", "USD/CAD", "USD/CHF", "NZD/USD", "XAU/USD", "BTC/USD", "USOIL"];
 
 export interface Candle {
   time: number;
