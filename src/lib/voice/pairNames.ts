@@ -38,6 +38,7 @@ const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
   ["XAG/USD", ["silver", "xag", "xagusd", "xag usd"]],
   ["BTC/USD", ["bitcoin", "btc", "btcusd", "btc usd"]],
   ["ETH/USD", ["ethereum", "eth", "ethusd", "eth usd"]],
+  ["USOIL", ["us oil", "crude oil", "wti", "usoil", "crude"]],
   ["UKOIL", ["uk oil", "brent oil", "brent", "ukoil"]],
   ["EUR/USD", ["eur usd", "eurusd", "euro dollar", "euro us dollar", "euro"]],
   ["GBP/USD", ["gbp usd", "gbpusd", "pound dollar", "cable", "sterling"]],

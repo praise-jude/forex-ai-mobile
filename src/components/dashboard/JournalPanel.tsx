@@ -1,12 +1,26 @@
-import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Circle, Line, Path } from "react-native-svg";
-import { useIsFocused } from "expo-router";
-import { useApi } from "@/lib/api/client";
-import { usePolledResource } from "@/lib/api/usePolledResource";
-import { formatPrice } from "@/lib/api/format";
-import type { ConfluenceBreakdownBucket, EdgeBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats, SlippageStats } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
+import { useApi } from "@/lib/api/client";
+import { formatPrice } from "@/lib/api/format";
+import type {
+    ConfluenceBreakdownBucket,
+    EdgeBucket,
+    JournalEntry,
+    JournalResponse,
+    PerformanceStats,
+    SignalFunnelStats,
+    SlippageStats,
+} from "@/lib/api/types";
+import { usePolledResource } from "@/lib/api/usePolledResource";
+import { useIsFocused } from "expo-router";
+import { useMemo, useState } from "react";
+import {
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    type LayoutChangeEvent,
+} from "react-native";
+import Svg, { Circle, Line, Path } from "react-native-svg";
 import { ProgressBar } from "./ProgressBar";
 
 // Mirrors forex-ai's tradeJournal.ts DEFAULT_CONFLUENCE_MIN_SAMPLES -- a display label
@@ -39,8 +53,23 @@ const REASON_LABEL: Record<JournalEntry["reason"], string> = {
   other: "Closed",
 };
 
-function StatTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "positive" | "negative" }) {
-  const valueColor = tone === "positive" ? DashboardColors.emerald : tone === "negative" ? DashboardColors.rose : DashboardColors.textPrimary;
+function StatTile({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "positive" | "negative";
+}) {
+  const valueColor =
+    tone === "positive"
+      ? DashboardColors.emerald
+      : tone === "negative"
+        ? DashboardColors.rose
+        : DashboardColors.textPrimary;
   return (
     <View style={styles.statTile}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -50,27 +79,64 @@ function StatTile({ label, value, hint, tone }: { label: string; value: string; 
   );
 }
 
-function StatsSummary({ stats, openCount }: { stats: PerformanceStats; openCount: number }) {
-  const averageRTone = stats.averageR === null ? undefined : stats.averageR >= 0 ? "positive" : "negative";
-  const profitFactorTone = stats.profitFactor === null ? undefined : stats.profitFactor >= 1 ? "positive" : "negative";
+function StatsSummary({
+  stats,
+  openCount,
+}: {
+  stats: PerformanceStats;
+  openCount: number;
+}) {
+  const averageRTone =
+    stats.averageR === null
+      ? undefined
+      : stats.averageR >= 0
+        ? "positive"
+        : "negative";
+  const profitFactorTone =
+    stats.profitFactor === null
+      ? undefined
+      : stats.profitFactor >= 1
+        ? "positive"
+        : "negative";
 
   return (
     <View style={styles.statsGrid}>
-      <StatTile label="Trades" value={String(stats.count + openCount)} hint={openCount > 0 ? `${openCount} open` : undefined} />
-      <StatTile label="Win rate" value={stats.count === 0 ? "—" : `${stats.winRate.toFixed(0)}%`} />
+      <StatTile
+        label="Trades"
+        value={String(stats.count + openCount)}
+        hint={openCount > 0 ? `${openCount} open` : undefined}
+      />
+      <StatTile
+        label="Win rate"
+        value={stats.count === 0 ? "—" : `${stats.winRate.toFixed(0)}%`}
+      />
       <StatTile label="Record" value={`${stats.wins}W / ${stats.losses}L`} />
       <StatTile
         label="Average R"
-        value={stats.averageR === null ? "—" : `${stats.averageR >= 0 ? "+" : ""}${stats.averageR.toFixed(2)}R`}
+        value={
+          stats.averageR === null
+            ? "—"
+            : `${stats.averageR >= 0 ? "+" : ""}${stats.averageR.toFixed(2)}R`
+        }
         tone={averageRTone}
       />
       <StatTile
         label="Profit factor"
-        value={stats.profitFactor === null ? "—" : stats.profitFactor.toFixed(2)}
+        value={
+          stats.profitFactor === null ? "—" : stats.profitFactor.toFixed(2)
+        }
         hint="Gross profit / gross loss"
         tone={profitFactorTone}
       />
-      <StatTile label="Max drawdown" value={stats.maxDrawdownR === null ? "—" : `${stats.maxDrawdownR.toFixed(2)}R`} tone="negative" />
+      <StatTile
+        label="Max drawdown"
+        value={
+          stats.maxDrawdownR === null
+            ? "—"
+            : `${stats.maxDrawdownR.toFixed(2)}R`
+        }
+        tone="negative"
+      />
     </View>
   );
 }
@@ -80,16 +146,27 @@ function StatsSummary({ stats, openCount }: { stats: PerformanceStats; openCount
  * from the executed-trade StatsSummary above, which is "actual executed trade
  * performance" and only ever reflects real closed trades. */
 function SignalFunnelSummary({ funnel }: { funnel: SignalFunnelStats }) {
-  const total = funnel.approved + funnel.rejected + funnel.expired + funnel.blocked;
+  const total =
+    funnel.approved + funnel.rejected + funnel.expired + funnel.blocked;
   if (total === 0) return null;
 
   return (
     <View>
-      <Text style={styles.sectionHeading}>AI signal performance (proposals, not trades)</Text>
+      <Text style={styles.sectionHeading}>
+        AI signal performance (proposals, not trades)
+      </Text>
       <View style={styles.statsGrid}>
-        <StatTile label="Approved" value={String(funnel.approved)} tone="positive" />
+        <StatTile
+          label="Approved"
+          value={String(funnel.approved)}
+          tone="positive"
+        />
         <StatTile label="Rejected" value={String(funnel.rejected)} />
-        <StatTile label="Expired" value={String(funnel.expired)} tone="negative" />
+        <StatTile
+          label="Expired"
+          value={String(funnel.expired)}
+          tone="negative"
+        />
         <StatTile label="Blocked" value={String(funnel.blocked)} />
       </View>
     </View>
@@ -134,7 +211,9 @@ function BreakdownTable({
   breakdown: Record<string, PerformanceStats>;
   labelFor: (key: string) => string;
 }) {
-  const rows = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+  const rows = Object.entries(breakdown).sort(
+    (a, b) => b[1].count - a[1].count,
+  );
   if (rows.length === 0) return null;
 
   return (
@@ -142,23 +221,56 @@ function BreakdownTable({
       <Text style={styles.sectionHeading}>{title}</Text>
       <View style={styles.breakdownTable}>
         <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText, styles.breakdownGroupCol]}>Group</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Trades</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Win rate</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Avg R</Text>
+          <Text
+            style={[
+              styles.breakdownCell,
+              styles.breakdownHeaderText,
+              styles.breakdownGroupCol,
+            ]}
+          >
+            Group
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Trades
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Win rate
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Avg R
+          </Text>
         </View>
         {rows.map(([key, stats]) => (
           <View key={key} style={styles.breakdownRow}>
-            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>{labelFor(key)}</Text>
-            <Text style={styles.breakdownCell}>{stats.count}</Text>
-            <Text style={styles.breakdownCell}>{stats.winRate.toFixed(0)}%</Text>
             <Text
               style={[
                 styles.breakdownCell,
-                { color: stats.averageR === null ? DashboardColors.textMuted : stats.averageR >= 0 ? DashboardColors.emerald : DashboardColors.rose },
+                styles.breakdownGroupCol,
+                styles.breakdownGroupText,
               ]}
             >
-              {stats.averageR === null ? "—" : `${stats.averageR >= 0 ? "+" : ""}${stats.averageR.toFixed(2)}R`}
+              {labelFor(key)}
+            </Text>
+            <Text style={styles.breakdownCell}>{stats.count}</Text>
+            <Text style={styles.breakdownCell}>
+              {stats.winRate.toFixed(0)}%
+            </Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                {
+                  color:
+                    stats.averageR === null
+                      ? DashboardColors.textMuted
+                      : stats.averageR >= 0
+                        ? DashboardColors.emerald
+                        : DashboardColors.rose,
+                },
+              ]}
+            >
+              {stats.averageR === null
+                ? "—"
+                : `${stats.averageR >= 0 ? "+" : ""}${stats.averageR.toFixed(2)}R`}
             </Text>
           </View>
         ))}
@@ -175,8 +287,18 @@ interface EquityPoint {
 /** Adaptive sizing read-out: the live position-size multiplier each engine/session
  * bucket currently produces, with the plain-English reason (see forex-ai's
  * adaptiveEdge.ts). RN port of the web JournalPanel.tsx EdgePanel. */
-function EdgePanel({ title, edge, labelFor }: { title: string; edge: Record<string, EdgeBucket>; labelFor: (key: string) => string }) {
-  const rows = Object.entries(edge).sort((a, b) => b[1].sampleSize - a[1].sampleSize);
+function EdgePanel({
+  title,
+  edge,
+  labelFor,
+}: {
+  title: string;
+  edge: Record<string, EdgeBucket>;
+  labelFor: (key: string) => string;
+}) {
+  const rows = Object.entries(edge).sort(
+    (a, b) => b[1].sampleSize - a[1].sampleSize,
+  );
   if (rows.length === 0) return null;
 
   return (
@@ -184,27 +306,64 @@ function EdgePanel({ title, edge, labelFor }: { title: string; edge: Record<stri
       <Text style={styles.sectionHeading}>{title}</Text>
       <View style={styles.breakdownTable}>
         <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText, styles.breakdownGroupCol]}>Group</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Trades</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Expectancy</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Size</Text>
+          <Text
+            style={[
+              styles.breakdownCell,
+              styles.breakdownHeaderText,
+              styles.breakdownGroupCol,
+            ]}
+          >
+            Group
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Trades
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Expectancy
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Size
+          </Text>
         </View>
         {rows.map(([key, bucket]) => (
           <View key={key} style={styles.breakdownRow}>
-            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>{labelFor(key)}</Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                styles.breakdownGroupCol,
+                styles.breakdownGroupText,
+              ]}
+            >
+              {labelFor(key)}
+            </Text>
             <Text style={styles.breakdownCell}>{bucket.sampleSize}</Text>
             <Text
               style={[
                 styles.breakdownCell,
-                { color: bucket.expectancyR === null ? DashboardColors.textMuted : bucket.expectancyR >= 0 ? DashboardColors.emerald : DashboardColors.rose },
+                {
+                  color:
+                    bucket.expectancyR === null
+                      ? DashboardColors.textMuted
+                      : bucket.expectancyR >= 0
+                        ? DashboardColors.emerald
+                        : DashboardColors.rose,
+                },
               ]}
             >
-              {bucket.expectancyR === null ? "—" : `${bucket.expectancyR >= 0 ? "+" : ""}${bucket.expectancyR.toFixed(2)}R`}
+              {bucket.expectancyR === null
+                ? "—"
+                : `${bucket.expectancyR >= 0 ? "+" : ""}${bucket.expectancyR.toFixed(2)}R`}
             </Text>
             <Text
               style={[
                 styles.breakdownCell,
-                { fontWeight: "600", color: bucket.sizeMultiplier < 1 ? DashboardColors.amber : DashboardColors.textPrimary },
+                {
+                  fontWeight: "600",
+                  color:
+                    bucket.sizeMultiplier < 1
+                      ? DashboardColors.amber
+                      : DashboardColors.textPrimary,
+                },
               ]}
             >
               {Math.round(bucket.sizeMultiplier * 100)}%
@@ -216,12 +375,13 @@ function EdgePanel({ title, edge, labelFor }: { title: string; edge: Record<stri
   );
 }
 
-
 /** Chronological cumulative R across every closed trade with a computed rMultiple --
  * mirrors forex-ai's JournalPanel.tsx buildEquityCurve. */
 function buildEquityCurve(entries: JournalEntry[]): EquityPoint[] {
   const withR = entries
-    .filter((e): e is JournalEntry & { rMultiple: number } => e.rMultiple !== null)
+    .filter(
+      (e): e is JournalEntry & { rMultiple: number } => e.rMultiple !== null,
+    )
     .slice()
     .sort((a, b) => a.closedAt - b.closedAt);
 
@@ -238,7 +398,17 @@ const EQUITY_CHART_HEIGHT = 140;
  * only other hand-rolled SVG chart in this app, which is also static. Every value here
  * is already direct-labeled (the end point), so nothing is gated behind an interaction
  * this component doesn't have. */
-function EquityCurveSvg({ points, width, height, color }: { points: EquityPoint[]; width: number; height: number; color: string }) {
+function EquityCurveSvg({
+  points,
+  width,
+  height,
+  color,
+}: {
+  points: EquityPoint[];
+  width: number;
+  height: number;
+  color: string;
+}) {
   const padding = { top: 10, bottom: 10, left: 4, right: 46 };
   const plotWidth = Math.max(width - padding.left - padding.right, 1);
   const plotHeight = Math.max(height - padding.top - padding.bottom, 1);
@@ -259,16 +429,42 @@ function EquityCurveSvg({ points, width, height, color }: { points: EquityPoint[
   }
 
   const last = points[points.length - 1];
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.time).toFixed(1)},${y(p.cumulativeR).toFixed(1)}`).join(" ");
+  const linePath = points
+    .map(
+      (p, i) =>
+        `${i === 0 ? "M" : "L"}${x(p.time).toFixed(1)},${y(p.cumulativeR).toFixed(1)}`,
+    )
+    .join(" ");
   const areaPath = `${linePath} L${x(last.time).toFixed(1)},${y(0).toFixed(1)} L${x(points[0].time).toFixed(1)},${y(0).toFixed(1)} Z`;
 
   return (
     <View style={[styles.equitySvgWrap, { width, height }]}>
       <Svg width={width} height={height}>
-        <Line x1={padding.left} x2={width - padding.right} y1={y(0)} y2={y(0)} stroke={DashboardColors.border} strokeWidth={1} />
+        <Line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={y(0)}
+          y2={y(0)}
+          stroke={DashboardColors.border}
+          strokeWidth={1}
+        />
         <Path d={areaPath} fill={color} fillOpacity={0.1} stroke="none" />
-        <Path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        <Circle cx={x(last.time)} cy={y(last.cumulativeR)} r={4} fill={color} stroke={DashboardColors.surface} strokeWidth={2} />
+        <Path
+          d={linePath}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <Circle
+          cx={x(last.time)}
+          cy={y(last.cumulativeR)}
+          r={4}
+          fill={color}
+          stroke={DashboardColors.surface}
+          strokeWidth={2}
+        />
       </Svg>
       <Text
         style={[
@@ -313,9 +509,17 @@ function EquityCurveChart({ entries }: { entries: JournalEntry[] }) {
       </View>
       <View style={styles.equityBox} onLayout={onLayout}>
         {points.length < 2 ? (
-          <Text style={styles.equityEmptyText}>Needs at least 2 closed trades with a computed R multiple to plot a curve.</Text>
+          <Text style={styles.equityEmptyText}>
+            Needs at least 2 closed trades with a computed R multiple to plot a
+            curve.
+          </Text>
         ) : width === 0 ? null : (
-          <EquityCurveSvg points={points} width={width} height={EQUITY_CHART_HEIGHT} color={color} />
+          <EquityCurveSvg
+            points={points}
+            width={width}
+            height={EQUITY_CHART_HEIGHT}
+            color={color}
+          />
         )}
       </View>
     </View>
@@ -331,26 +535,55 @@ function formatPips(pips: number | null): string {
  * favorable. */
 function SlippageSummary({ stats }: { stats: SlippageStats }) {
   if (stats.count === 0) return null;
-  const avgTone = stats.averagePips === null || stats.averagePips === 0 ? undefined : stats.averagePips > 0 ? "negative" : "positive";
-  const worstIsAdverse = stats.worstAdversePips !== null && stats.worstAdversePips > 0;
-  const bestIsFavorable = stats.bestFavorablePips !== null && stats.bestFavorablePips < 0;
+  const avgTone =
+    stats.averagePips === null || stats.averagePips === 0
+      ? undefined
+      : stats.averagePips > 0
+        ? "negative"
+        : "positive";
+  const worstIsAdverse =
+    stats.worstAdversePips !== null && stats.worstAdversePips > 0;
+  const bestIsFavorable =
+    stats.bestFavorablePips !== null && stats.bestFavorablePips < 0;
 
   return (
     <View>
       <Text style={styles.sectionHeading}>Execution quality (slippage)</Text>
       <View style={styles.statsGrid}>
         <StatTile label="Fills measured" value={String(stats.count)} />
-        <StatTile label="Average slippage" value={formatPips(stats.averagePips)} tone={avgTone} />
-        <StatTile label="Adverse fills" value={`${stats.adverseRate.toFixed(0)}%`} tone={stats.adverseRate > 50 ? "negative" : undefined} />
-        <StatTile label="Worst adverse" value={formatPips(stats.worstAdversePips)} tone={worstIsAdverse ? "negative" : "positive"} />
-        <StatTile label="Best favorable" value={formatPips(stats.bestFavorablePips)} tone={bestIsFavorable ? "positive" : "negative"} />
+        <StatTile
+          label="Average slippage"
+          value={formatPips(stats.averagePips)}
+          tone={avgTone}
+        />
+        <StatTile
+          label="Adverse fills"
+          value={`${stats.adverseRate.toFixed(0)}%`}
+          tone={stats.adverseRate > 50 ? "negative" : undefined}
+        />
+        <StatTile
+          label="Worst adverse"
+          value={formatPips(stats.worstAdversePips)}
+          tone={worstIsAdverse ? "negative" : "positive"}
+        />
+        <StatTile
+          label="Best favorable"
+          value={formatPips(stats.bestFavorablePips)}
+          tone={bestIsFavorable ? "positive" : "negative"}
+        />
       </View>
     </View>
   );
 }
 
-function SlippageBreakdownTable({ breakdown }: { breakdown: Record<string, SlippageStats> }) {
-  const rows = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+function SlippageBreakdownTable({
+  breakdown,
+}: {
+  breakdown: Record<string, SlippageStats>;
+}) {
+  const rows = Object.entries(breakdown).sort(
+    (a, b) => b[1].count - a[1].count,
+  );
   if (rows.length === 0) return null;
 
   return (
@@ -358,14 +591,36 @@ function SlippageBreakdownTable({ breakdown }: { breakdown: Record<string, Slipp
       <Text style={styles.sectionHeading}>Slippage by pair</Text>
       <View style={styles.breakdownTable}>
         <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
-          <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownHeaderText]}>Pair</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Fills</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Avg slippage</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Adverse</Text>
+          <Text
+            style={[
+              styles.breakdownCell,
+              styles.breakdownGroupCol,
+              styles.breakdownHeaderText,
+            ]}
+          >
+            Pair
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Fills
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Avg slippage
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Adverse
+          </Text>
         </View>
         {rows.map(([pair, stats]) => (
           <View key={pair} style={styles.breakdownRow}>
-            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>{pair}</Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                styles.breakdownGroupCol,
+                styles.breakdownGroupText,
+              ]}
+            >
+              {pair}
+            </Text>
             <Text style={styles.breakdownCell}>{stats.count}</Text>
             <Text
               style={[
@@ -382,7 +637,9 @@ function SlippageBreakdownTable({ breakdown }: { breakdown: Record<string, Slipp
             >
               {formatPips(stats.averagePips)}
             </Text>
-            <Text style={styles.breakdownCell}>{stats.adverseRate.toFixed(0)}%</Text>
+            <Text style={styles.breakdownCell}>
+              {stats.adverseRate.toFixed(0)}%
+            </Text>
           </View>
         ))}
       </View>
@@ -420,43 +677,84 @@ const CONFLUENCE_LABEL: Record<string, string> = {
  * needs an honest flagged row instead of a misleadingly-precise percentage from a
  * handful of trades. Rows already arrive sorted by sample size. RN port of forex-ai's
  * JournalPanel.tsx ConfluenceBreakdownTable. */
-function ConfluenceBreakdownTable({ breakdown }: { breakdown: ConfluenceBreakdownBucket[] }) {
+function ConfluenceBreakdownTable({
+  breakdown,
+}: {
+  breakdown: ConfluenceBreakdownBucket[];
+}) {
   if (breakdown.length === 0) return null;
 
   return (
     <View>
-      <Text style={styles.sectionHeading}>Which confluences actually predict wins</Text>
+      <Text style={styles.sectionHeading}>
+        Which confluences actually predict wins
+      </Text>
       <Text style={styles.confluenceHint}>
-        Real win rate/average R where each confluence was present on the signal. Buckets under {CONFLUENCE_MIN_SAMPLES} trades
-        are flagged, not hidden.
+        Real win rate/average R where each confluence was present on the signal.
+        Buckets under {CONFLUENCE_MIN_SAMPLES} trades are flagged, not hidden.
       </Text>
       <View style={styles.breakdownTable}>
         <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText, styles.breakdownGroupCol]}>Confluence</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Trades</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Win rate</Text>
-          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Avg R</Text>
+          <Text
+            style={[
+              styles.breakdownCell,
+              styles.breakdownHeaderText,
+              styles.breakdownGroupCol,
+            ]}
+          >
+            Confluence
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Trades
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Win rate
+          </Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>
+            Avg R
+          </Text>
         </View>
         {breakdown.map((bucket) => (
           <View key={bucket.confluence} style={styles.breakdownRow}>
-            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>
+            <Text
+              style={[
+                styles.breakdownCell,
+                styles.breakdownGroupCol,
+                styles.breakdownGroupText,
+              ]}
+            >
               {CONFLUENCE_LABEL[bucket.confluence] ?? bucket.confluence}
             </Text>
             <Text style={styles.breakdownCell}>{bucket.sampleSize}</Text>
             {bucket.status === "insufficient_data" ? (
               <View style={[styles.breakdownCell, styles.breakdownSpanTwo]}>
-                <ProgressBar value={bucket.sampleSize} max={CONFLUENCE_MIN_SAMPLES} label={`${bucket.sampleSize} of ${CONFLUENCE_MIN_SAMPLES}`} />
+                <ProgressBar
+                  value={bucket.sampleSize}
+                  max={CONFLUENCE_MIN_SAMPLES}
+                  label={`${bucket.sampleSize} of ${CONFLUENCE_MIN_SAMPLES}`}
+                />
               </View>
             ) : (
               <>
-                <Text style={styles.breakdownCell}>{bucket.winRate!.toFixed(0)}%</Text>
+                <Text style={styles.breakdownCell}>
+                  {bucket.winRate!.toFixed(0)}%
+                </Text>
                 <Text
                   style={[
                     styles.breakdownCell,
-                    { color: bucket.averageR === null ? DashboardColors.textMuted : bucket.averageR >= 0 ? DashboardColors.emerald : DashboardColors.rose },
+                    {
+                      color:
+                        bucket.averageR === null
+                          ? DashboardColors.textMuted
+                          : bucket.averageR >= 0
+                            ? DashboardColors.emerald
+                            : DashboardColors.rose,
+                    },
                   ]}
                 >
-                  {bucket.averageR === null ? "—" : `${bucket.averageR >= 0 ? "+" : ""}${bucket.averageR.toFixed(2)}R`}
+                  {bucket.averageR === null
+                    ? "—"
+                    : `${bucket.averageR >= 0 ? "+" : ""}${bucket.averageR.toFixed(2)}R`}
                 </Text>
               </>
             )}
@@ -475,16 +773,35 @@ function EntryRow({ entry }: { entry: JournalEntry }) {
     <View style={styles.entryRow}>
       <View style={styles.entryTop}>
         <View style={styles.entryTopLeft}>
-          <Text style={[styles.entryDirection, { color: isLong ? DashboardColors.emerald : DashboardColors.rose }]}>
+          <Text
+            style={[
+              styles.entryDirection,
+              {
+                color: isLong ? DashboardColors.emerald : DashboardColors.rose,
+              },
+            ]}
+          >
             {isLong ? "LONG" : "SHORT"}
           </Text>
           <Text style={styles.entryPair}>{entry.pair}</Text>
-          {entry.context?.setupQuality && <Text style={styles.entryMuted}>Setup quality {entry.context.setupQuality.total}/100</Text>}
+          {entry.context?.setupQuality && (
+            <Text style={styles.entryMuted}>
+              Setup quality {entry.context.setupQuality.total}/100
+            </Text>
+          )}
         </View>
-        <Text style={[styles.entryProfit, { color: inProfit ? DashboardColors.emerald : DashboardColors.rose }]}>
+        <Text
+          style={[
+            styles.entryProfit,
+            {
+              color: inProfit ? DashboardColors.emerald : DashboardColors.rose,
+            },
+          ]}
+        >
           {inProfit ? "+" : ""}
           {entry.profit.toFixed(2)}
-          {entry.rMultiple !== null && ` (${entry.rMultiple >= 0 ? "+" : ""}${entry.rMultiple.toFixed(2)}R)`}
+          {entry.rMultiple !== null &&
+            ` (${entry.rMultiple >= 0 ? "+" : ""}${entry.rMultiple.toFixed(2)}R)`}
         </Text>
       </View>
       <View style={styles.entryBottom}>
@@ -493,7 +810,9 @@ function EntryRow({ entry }: { entry: JournalEntry }) {
           {entry.context && ` · ${entry.context.regime.replace(/_/g, " ")}`}
         </Text>
         <Text style={styles.entryMuted}>
-          {formatPrice(entry.pair, entry.entryPrice)} → {formatPrice(entry.pair, entry.exitPrice)} · {relativeTime(entry.closedAt)}
+          {formatPrice(entry.pair, entry.entryPrice)} →{" "}
+          {formatPrice(entry.pair, entry.exitPrice)} ·{" "}
+          {relativeTime(entry.closedAt)}
         </Text>
       </View>
     </View>
@@ -506,29 +825,73 @@ export function JournalPanel() {
   // another tab is active) and shares the "trade-journal" key with
   // ConfidenceCalibrationCard.tsx (Settings tab) -- see that component's own comment.
   const isFocused = useIsFocused();
-  const { data } = usePolledResource("trade-journal", () => api.get<JournalResponse>("/api/trade-journal"), POLL_INTERVAL_MS, isFocused);
+  const { data } = usePolledResource(
+    "trade-journal",
+    () => api.get<JournalResponse>("/api/trade-journal"),
+    POLL_INTERVAL_MS,
+    isFocused,
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       {data && <StatsSummary stats={data.stats} openCount={data.openCount} />}
       {data && <EquityCurveChart entries={data.entries} />}
       {data && <SignalFunnelSummary funnel={data.signalFunnel} />}
-      {data && <BreakdownTable title="Performance by engine" breakdown={data.breakdownBySource} labelFor={(key) => SOURCE_LABEL[key] ?? key} />}
-      {data && <BreakdownTable title="Performance by pair" breakdown={data.breakdownByPair} labelFor={(key) => key} />}
-      {data && <BreakdownTable title="Performance by session" breakdown={data.breakdownBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
       {data && (
-        <BreakdownTable title="Performance by market regime (SMC only)" breakdown={data.breakdownByRegime} labelFor={(key) => REGIME_LABEL[key] ?? key} />
+        <BreakdownTable
+          title="Performance by engine"
+          breakdown={data.breakdownBySource}
+          labelFor={(key) => SOURCE_LABEL[key] ?? key}
+        />
       )}
-      {data && <ConfluenceBreakdownTable breakdown={data.breakdownByConfluence} />}
-      {data && <EdgePanel title="Adaptive sizing by engine" edge={data.edgeByEngine} labelFor={(key) => SOURCE_LABEL[key] ?? key} />}
-      {data && <EdgePanel title="Adaptive sizing by session" edge={data.edgeBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
+      {data && (
+        <BreakdownTable
+          title="Performance by pair"
+          breakdown={data.breakdownByPair}
+          labelFor={(key) => key}
+        />
+      )}
+      {data && (
+        <BreakdownTable
+          title="Performance by session"
+          breakdown={data.breakdownBySession}
+          labelFor={(key) => SESSION_LABEL[key] ?? key}
+        />
+      )}
+      {data && (
+        <BreakdownTable
+          title="Performance by market regime (SMC only)"
+          breakdown={data.breakdownByRegime}
+          labelFor={(key) => REGIME_LABEL[key] ?? key}
+        />
+      )}
+      {data && (
+        <ConfluenceBreakdownTable breakdown={data.breakdownByConfluence} />
+      )}
+      {data && (
+        <EdgePanel
+          title="Adaptive sizing by engine"
+          edge={data.edgeByEngine}
+          labelFor={(key) => SOURCE_LABEL[key] ?? key}
+        />
+      )}
+      {data && (
+        <EdgePanel
+          title="Adaptive sizing by session"
+          edge={data.edgeBySession}
+          labelFor={(key) => SESSION_LABEL[key] ?? key}
+        />
+      )}
       {data && <SlippageSummary stats={data.slippage} />}
       {data && <SlippageBreakdownTable breakdown={data.slippageByPair} />}
 
       <View>
         <Text style={styles.sectionHeading}>Closed trades</Text>
         {!data || data.entries.length === 0 ? (
-          <Text style={styles.empty}>No closed trades yet — entries appear here once a trade this app opened closes.</Text>
+          <Text style={styles.empty}>
+            No closed trades yet — entries appear here once a trade this app
+            opened closes.
+          </Text>
         ) : (
           <View style={styles.entryList}>
             {data.entries.map((entry) => (
@@ -561,30 +924,109 @@ const styles = StyleSheet.create({
     backgroundColor: DashboardColors.surfaceAlt,
     padding: 10,
   },
-  statLabel: { fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, color: DashboardColors.textMuted },
-  statValue: { marginTop: 4, fontSize: 16, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  statLabel: {
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    color: DashboardColors.textMuted,
+  },
+  statValue: {
+    marginTop: 4,
+    fontSize: 16,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
   statHint: { marginTop: 2, fontSize: 10, color: DashboardColors.textMuted },
-  empty: { textAlign: "center", paddingVertical: 24, color: DashboardColors.textMuted, fontSize: 13 },
+  empty: {
+    textAlign: "center",
+    paddingVertical: 24,
+    color: DashboardColors.textMuted,
+    fontSize: 13,
+  },
   entryList: { gap: 8 },
-  entryRow: { borderRadius: 10, borderWidth: 1, borderColor: DashboardColors.border, backgroundColor: DashboardColors.surfaceAlt, padding: 10, gap: 4 },
-  entryTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  entryTopLeft: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
+  entryRow: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: DashboardColors.border,
+    backgroundColor: DashboardColors.surfaceAlt,
+    padding: 10,
+    gap: 4,
+  },
+  entryTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  entryTopLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 1,
+  },
   entryDirection: { fontSize: 11, fontWeight: "700" },
-  entryPair: { fontSize: 12, fontWeight: "700", color: DashboardColors.textPrimary },
-  entryProfit: { fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  entryBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  entryPair: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: DashboardColors.textPrimary,
+  },
+  entryProfit: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  entryBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   entryMuted: { fontSize: 11, color: DashboardColors.textMuted },
-  breakdownTable: { borderRadius: 10, borderWidth: 1, borderColor: DashboardColors.border, backgroundColor: DashboardColors.surface, overflow: "hidden" },
-  breakdownRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: DashboardColors.border },
+  breakdownTable: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: DashboardColors.border,
+    backgroundColor: DashboardColors.surface,
+    overflow: "hidden",
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: DashboardColors.border,
+  },
   breakdownHeaderRow: { backgroundColor: DashboardColors.surfaceAlt },
-  breakdownCell: { flex: 1, paddingHorizontal: 10, paddingVertical: 8, fontSize: 11, color: DashboardColors.textSecondary, fontVariant: ["tabular-nums"] },
+  breakdownCell: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 11,
+    color: DashboardColors.textSecondary,
+    fontVariant: ["tabular-nums"],
+  },
   breakdownGroupCol: { flex: 1.4 },
   breakdownGroupText: { color: DashboardColors.textPrimary, fontWeight: "600" },
-  breakdownHeaderText: { color: DashboardColors.textMuted, fontWeight: "700", textTransform: "uppercase", fontSize: 10 },
-  confluenceHint: { fontSize: 11, color: DashboardColors.textMuted, lineHeight: 15, marginBottom: 8 },
+  breakdownHeaderText: {
+    color: DashboardColors.textMuted,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: 10,
+  },
+  confluenceHint: {
+    fontSize: 11,
+    color: DashboardColors.textMuted,
+    lineHeight: 15,
+    marginBottom: 8,
+  },
   breakdownSpanTwo: { flex: 2 },
-  equityHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 },
-  equityHeaderValue: { fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  equityHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  equityHeaderValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
   equityBox: {
     minHeight: EQUITY_CHART_HEIGHT,
     borderRadius: 12,
@@ -595,7 +1037,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
   },
-  equityEmptyText: { color: DashboardColors.textMuted, fontSize: 12, textAlign: "center", padding: 12 },
+  equityEmptyText: {
+    color: DashboardColors.textMuted,
+    fontSize: 12,
+    textAlign: "center",
+    padding: 12,
+  },
   equitySvgWrap: { position: "relative" },
   equityEndLabel: { position: "absolute", fontSize: 10, fontWeight: "700" },
 });

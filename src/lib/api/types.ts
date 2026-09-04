@@ -44,7 +44,10 @@ export type Pair =
 // (a mobile-built signal for an excluded pair gets rejected 400 by the web backend, and
 // BacktestPanel's "all pairs" run would otherwise still include a pair the web app no
 // longer tracks or has current subscriptions/candle history for).
-export const PAIRS: Pair[] = ["GBP/USD", "USD/CHF", "XAU/USD", "BTC/USD"];
+//
+// USD/CHF swapped back out for USOIL on 2026-09-04, mirroring the web app (operator's
+// explicit request -- USOIL is a priority instrument, see the web types.ts comment).
+export const PAIRS: Pair[] = ["GBP/USD", "XAU/USD", "BTC/USD", "USOIL"];
 
 export interface Candle {
   time: number;
