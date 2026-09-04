@@ -38,7 +38,6 @@ const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
   ["XAG/USD", ["silver", "xag", "xagusd", "xag usd"]],
   ["BTC/USD", ["bitcoin", "btc", "btcusd", "btc usd"]],
   ["ETH/USD", ["ethereum", "eth", "ethusd", "eth usd"]],
-  ["USOIL", ["us oil", "crude oil", "wti", "usoil", "crude"]],
   ["UKOIL", ["uk oil", "brent oil", "brent", "ukoil"]],
   ["EUR/USD", ["eur usd", "eurusd", "euro dollar", "euro us dollar", "euro"]],
   ["GBP/USD", ["gbp usd", "gbpusd", "pound dollar", "cable", "sterling"]],
@@ -46,7 +45,10 @@ const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
   ["AUD/USD", ["aud usd", "audusd", "aussie dollar", "aussie"]],
   ["USD/CAD", ["usd cad", "usdcad", "dollar cad", "loonie"]],
   ["USD/CHF", ["usd chf", "usdchf", "swiss franc", "dollar franc", "chf"]],
-  ["NZD/USD", ["nzd usd", "nzdusd", "kiwi dollar", "kiwi", "new zealand dollar"]],
+  [
+    "NZD/USD",
+    ["nzd usd", "nzdusd", "kiwi dollar", "kiwi", "new zealand dollar"],
+  ],
   // Deliberately more specific than a bare "euro"/"yen" (already claimed by EUR/USD and
   // USD/JPY above, checked first) -- avoids EUR/JPY silently stealing either alias.
   ["EUR/JPY", ["eur jpy", "eurjpy", "euro yen"]],
@@ -61,12 +63,14 @@ const PAIR_ALIASES: [pair: Pair, aliases: string[]][] = [
 /** Finds the first pair whose alias appears in the (already-lowercased) transcript. */
 export function matchPair(normalizedTranscript: string): Pair | undefined {
   for (const [pair, aliases] of PAIR_ALIASES) {
-    if (aliases.some((alias) => normalizedTranscript.includes(alias))) return pair;
+    if (aliases.some((alias) => normalizedTranscript.includes(alias)))
+      return pair;
   }
   // Fall back to a bare ticker match (e.g. someone reads "E U R U S D" and Whisper
   // transcribes it close to the compact ticker form).
   for (const pair of PAIRS) {
-    if (normalizedTranscript.includes(tickerWord(pair).toLowerCase())) return pair;
+    if (normalizedTranscript.includes(tickerWord(pair).toLowerCase()))
+      return pair;
   }
   return undefined;
 }

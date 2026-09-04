@@ -39,12 +39,12 @@ export type Pair =
 // isPlausibleSignal check (PAIRS.includes(s.pair)) rejects it with a 400 -- confirmed
 // as the real cause of a live "request fail 400" report, not a guess.
 //
-// USD/CAD and NZD/USD dropped down to today's 5, mirroring the web app's own follow-up
+// USD/CAD and NZD/USD dropped down to today's 4, mirroring the web app's own follow-up
 // PAIRS change -- same reasoning, same failure mode if this list is left to drift again
-// (a mobile-built signal for either pair gets rejected 400 by the web backend, and
-// BacktestPanel's "all pairs" run would otherwise still include two pairs the web app
-// itself no longer tracks or has current subscriptions/candle history for).
-export const PAIRS: Pair[] = ["GBP/USD", "USD/CHF", "XAU/USD", "BTC/USD", "USOIL"];
+// (a mobile-built signal for an excluded pair gets rejected 400 by the web backend, and
+// BacktestPanel's "all pairs" run would otherwise still include a pair the web app no
+// longer tracks or has current subscriptions/candle history for).
+export const PAIRS: Pair[] = ["GBP/USD", "USD/CHF", "XAU/USD", "BTC/USD"];
 
 export interface Candle {
   time: number;
@@ -81,7 +81,12 @@ export type Confluence =
   | "rejection_candle";
 
 export type ConfidenceTier = "strong_buy" | "buy" | "watch";
-export type SignalSource = "smc" | "tradingview" | "mean_reversion" | "manual" | "manual_test";
+export type SignalSource =
+  | "smc"
+  | "tradingview"
+  | "mean_reversion"
+  | "manual"
+  | "manual_test";
 export type Session = "asia" | "london" | "newyork" | "off-session";
 
 export interface Signal {
@@ -140,14 +145,30 @@ export interface DimensionScore {
 export type NoTradeReason =
   | { code: "outside_killzone" }
   | { code: "no_setup" }
-  | { code: "trend_disagreement"; impliedDirection: "long" | "short"; d1: string; h4: string; h1: string }
+  | {
+      code: "trend_disagreement";
+      impliedDirection: "long" | "short";
+      d1: string;
+      h4: string;
+      h1: string;
+    }
   | { code: "weak_trend_adx"; adx: number }
   | { code: "low_volatility"; atr: number; atrAverage: number }
-  | { code: "below_threshold"; direction: DimensionScore; entry: DimensionScore }
+  | {
+      code: "below_threshold";
+      direction: DimensionScore;
+      entry: DimensionScore;
+    }
   // A decisive hold -- an SMC setup was found and would otherwise have qualified, but a
   // high-impact release for one of the pair's currencies is imminent. Never fires from
   // missing/unavailable news data -- only from a genuinely detected upcoming event.
-  | { code: "news_blackout"; impliedDirection: "long" | "short"; event: string; currency: string; minutesUntil: number }
+  | {
+      code: "news_blackout";
+      impliedDirection: "long" | "short";
+      event: string;
+      currency: string;
+      minutesUntil: number;
+    }
   // SMC found a qualifying setup, but Signer B's independent read had no real lean
   // either way -- a genuine tie/insufficient-data read, not a fabricated agreement.
   | { code: "signer_b_neutral"; impliedDirection: "long" | "short" }
@@ -172,9 +193,15 @@ export type NoTradeReason =
   // hasn't been touched yet.
   | { code: "no_range_detected" }
   | { code: "no_boundary_touch" }
-  | { code: "range_below_threshold"; total: number; impliedDirection: "long" | "short" };
+  | {
+      code: "range_below_threshold";
+      total: number;
+      impliedDirection: "long" | "short";
+    };
 
-export type SignalEvaluation = { status: "signal"; signal: Signal } | { status: "no_trade"; reason: NoTradeReason };
+export type SignalEvaluation =
+  | { status: "signal"; signal: Signal }
+  | { status: "no_trade"; reason: NoTradeReason };
 
 export type MarketRegime =
   | "news_driven"
@@ -356,17 +383,27 @@ export type ExecuteResponse =
   | { status: "expired" }
   | { status: "confirmation_required"; requiredPhrase: string };
 
-export type CardStatus = { state: "idle" } | { state: "loading" } | { state: "done"; result: ExecuteResponse };
+export type CardStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "done"; result: ExecuteResponse };
 
 export function statusFromTrade(trade: ExecutedTrade): CardStatus | null {
-  if (trade.status === "filled") return { state: "done", result: { status: "filled", trade } };
-  if (trade.status === "rejected") return { state: "done", result: { status: "rejected", trade } };
+  if (trade.status === "filled")
+    return { state: "done", result: { status: "filled", trade } };
+  if (trade.status === "rejected")
+    return { state: "done", result: { status: "rejected", trade } };
   return null;
 }
 
 // --- Trade journal (mirrors forex-ai's lib/market/tradeJournal.ts JSON shapes) ---
 
-export type JournalCloseReason = "stop_loss" | "take_profit" | "invalidation" | "manual" | "other";
+export type JournalCloseReason =
+  | "stop_loss"
+  | "take_profit"
+  | "invalidation"
+  | "manual"
+  | "other";
 
 // Minimal mirror of SignalContext -- the Journal screen only ever reads
 // setupQuality.total, regime, and (for confluence-edge analytics) confluences off this,
@@ -578,7 +615,13 @@ export interface SystemHealthPair {
 export interface SystemHealthAccount {
   account: AccountKey;
   connectionStatus: ConnectionStatusResponse;
-  accountInfo: { balance: number; equity: number; freeMargin: number; margin: number; tradeAllowed: boolean } | null;
+  accountInfo: {
+    balance: number;
+    equity: number;
+    freeMargin: number;
+    margin: number;
+    tradeAllowed: boolean;
+  } | null;
   pairs: SystemHealthPair[];
 }
 
@@ -605,7 +648,12 @@ export interface BacktestRequest {
   engine?: "smc" | "mean_reversion";
 }
 
-export type BacktestStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export type BacktestStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface BacktestProgress {
   pairsDone: number;
