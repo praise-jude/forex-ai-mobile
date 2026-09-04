@@ -5,7 +5,7 @@ import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolledResource } from "@/lib/api/usePolledResource";
 import { formatPrice } from "@/lib/api/format";
-import type { ConfluenceBreakdownBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats, SlippageStats } from "@/lib/api/types";
+import type { ConfluenceBreakdownBucket, EdgeBucket, JournalEntry, JournalResponse, PerformanceStats, SignalFunnelStats, SlippageStats } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ProgressBar } from "./ProgressBar";
 
@@ -171,6 +171,51 @@ interface EquityPoint {
   time: number;
   cumulativeR: number;
 }
+
+/** Adaptive sizing read-out: the live position-size multiplier each engine/session
+ * bucket currently produces, with the plain-English reason (see forex-ai's
+ * adaptiveEdge.ts). RN port of the web JournalPanel.tsx EdgePanel. */
+function EdgePanel({ title, edge, labelFor }: { title: string; edge: Record<string, EdgeBucket>; labelFor: (key: string) => string }) {
+  const rows = Object.entries(edge).sort((a, b) => b[1].sampleSize - a[1].sampleSize);
+  if (rows.length === 0) return null;
+
+  return (
+    <View>
+      <Text style={styles.sectionHeading}>{title}</Text>
+      <View style={styles.breakdownTable}>
+        <View style={[styles.breakdownRow, styles.breakdownHeaderRow]}>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText, styles.breakdownGroupCol]}>Group</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Trades</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Expectancy</Text>
+          <Text style={[styles.breakdownCell, styles.breakdownHeaderText]}>Size</Text>
+        </View>
+        {rows.map(([key, bucket]) => (
+          <View key={key} style={styles.breakdownRow}>
+            <Text style={[styles.breakdownCell, styles.breakdownGroupCol, styles.breakdownGroupText]}>{labelFor(key)}</Text>
+            <Text style={styles.breakdownCell}>{bucket.sampleSize}</Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                { color: bucket.expectancyR === null ? DashboardColors.textMuted : bucket.expectancyR >= 0 ? DashboardColors.emerald : DashboardColors.rose },
+              ]}
+            >
+              {bucket.expectancyR === null ? "—" : `${bucket.expectancyR >= 0 ? "+" : ""}${bucket.expectancyR.toFixed(2)}R`}
+            </Text>
+            <Text
+              style={[
+                styles.breakdownCell,
+                { fontWeight: "600", color: bucket.sizeMultiplier < 1 ? DashboardColors.amber : DashboardColors.textPrimary },
+              ]}
+            >
+              {Math.round(bucket.sizeMultiplier * 100)}%
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 
 /** Chronological cumulative R across every closed trade with a computed rMultiple --
  * mirrors forex-ai's JournalPanel.tsx buildEquityCurve. */
@@ -475,6 +520,8 @@ export function JournalPanel() {
         <BreakdownTable title="Performance by market regime (SMC only)" breakdown={data.breakdownByRegime} labelFor={(key) => REGIME_LABEL[key] ?? key} />
       )}
       {data && <ConfluenceBreakdownTable breakdown={data.breakdownByConfluence} />}
+      {data && <EdgePanel title="Adaptive sizing by engine" edge={data.edgeByEngine} labelFor={(key) => SOURCE_LABEL[key] ?? key} />}
+      {data && <EdgePanel title="Adaptive sizing by session" edge={data.edgeBySession} labelFor={(key) => SESSION_LABEL[key] ?? key} />}
       {data && <SlippageSummary stats={data.slippage} />}
       {data && <SlippageBreakdownTable breakdown={data.slippageByPair} />}
 

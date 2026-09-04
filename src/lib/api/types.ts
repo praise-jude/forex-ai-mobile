@@ -519,6 +519,20 @@ export interface JournalResponse {
   confidenceCalibration: ConfidenceCalibrationBucket[];
   signerBCalibration: SignerBCalibrationBucket[];
   calibrationMinSamples: number;
+  /** Adaptive sizing read-outs -- the live multiplier + reason each engine/session
+   * bucket currently produces. Mirrors forex-ai's lib/market/adaptiveEdge.ts. */
+  edgeByEngine: Record<string, EdgeBucket>;
+  edgeBySession: Record<string, EdgeBucket>;
+}
+
+/** Mirrors forex-ai's lib/market/adaptiveEdge.ts EdgeBucket. */
+export interface EdgeBucket {
+  sampleSize: number;
+  /** Win rate as 0-100. */
+  winRate: number;
+  expectancyR: number | null;
+  sizeMultiplier: number;
+  reason: string;
 }
 
 // "Can I actually trust a 95% confidence signal" -- mirrors forex-ai's
@@ -716,6 +730,13 @@ export interface ExecutionConfig {
   confidenceSizingEnabled: boolean;
   riskMultiplierBuy: number;
   riskMultiplierStrongBuy: number;
+  deEscalationEnabled: boolean;
+  deEscalationFraction: number;
+  deEscalationSizeMultiplier: number;
+  adaptiveEngineSizingEnabled: boolean;
+  sessionEdgeSizingEnabled: boolean;
+  edgeMinSamples: number;
+  alertWebhookUrl?: string;
 }
 
 export interface ExecutionConfigResponse {
