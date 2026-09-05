@@ -55,7 +55,10 @@ export function VoiceSettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback((patch: Partial<VoiceSettings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      void SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
+      void SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {
+        // Best-effort persistence; in-memory `settings` still reflects the update for
+        // this session even if the write fails, same as SettingsContext.tsx's approach.
+      });
       return next;
     });
   }, []);

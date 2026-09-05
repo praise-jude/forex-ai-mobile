@@ -39,6 +39,12 @@ export async function transcribeAudio(fileUri: string, serverUrl: string, authHe
     throw new TranscribeError(body?.message ?? `Transcription failed (${result.status}).`);
   }
 
-  const json = JSON.parse(result.body) as { text?: string };
+  let json: { text?: string };
+  try {
+    json = JSON.parse(result.body) as { text?: string };
+  } catch (err) {
+    console.error("[voice] transcribe returned a malformed response body:", err, result.body);
+    throw new TranscribeError("The server returned an unreadable response while transcribing your command.");
+  }
   return json.text?.trim() ?? "";
 }

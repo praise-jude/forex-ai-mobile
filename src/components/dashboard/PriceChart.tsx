@@ -69,8 +69,8 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
   // on the many ticks where nothing visible changed.
   const candles = useMemo(
     () => rawCandles.slice(-MAX_CANDLES),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately fingerprinted on length + last candle's time/close instead of rawCandles itself, which is a new array reference every poll regardless of content.
-    [rawCandles.length, lastRaw?.time, lastRaw?.close]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately fingerprinted on length + last candle's time/OHLC instead of rawCandles itself, which is a new array reference every poll regardless of content. high/low included (not just close) so a wick-only move within the still-forming last candle (price spikes and reverts back to the same close) still triggers a redraw.
+    [rawCandles.length, lastRaw?.time, lastRaw?.close, lastRaw?.high, lastRaw?.low]
   );
   const matchesSelection = prediction?.pair === pair && prediction?.timeframe === timeframe;
   const rawSignal = matchesSelection && prediction?.evaluation.status === "signal" ? prediction.evaluation.signal : null;

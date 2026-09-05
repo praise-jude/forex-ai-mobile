@@ -28,8 +28,12 @@ export function RiskGuardianBanner() {
     try {
       await api.post("/api/risk-status/acknowledge");
       if (data) setData({ ...data, requiresAcknowledgement: false });
-    } catch {
-      // Best-effort -- the banner just stays up if this fails, next poll cycle re-tries nothing automatically but the button remains tappable.
+    } catch (err) {
+      // The banner correctly stays up if this fails (next poll cycle re-tries nothing
+      // automatically but the button remains tappable) -- but silently doing so on a
+      // safety-critical control left the operator with no way to tell "still paused,
+      // failed" apart from "still paused, just slow." Surfaced instead of swallowed.
+      Alert.alert("Couldn't resume", err instanceof Error ? err.message : "Network error — try again.");
     } finally {
       setAcknowledging(false);
     }
@@ -43,8 +47,9 @@ export function RiskGuardianBanner() {
     try {
       await api.post("/api/risk-status/force-resume");
       if (data) setData({ ...data, haltedForToday: false, requiresAcknowledgement: false });
-    } catch {
-      // Best-effort, same posture as acknowledge() above.
+    } catch (err) {
+      // Surfaced, same reasoning as acknowledge() above.
+      Alert.alert("Couldn't force-resume", err instanceof Error ? err.message : "Network error — try again.");
     } finally {
       setForceResuming(false);
     }
@@ -67,8 +72,9 @@ export function RiskGuardianBanner() {
     try {
       await api.post("/api/risk-status/force-resume-cooldown");
       if (data) setData({ ...data, cooldownUntil: null, consecutiveLosses: 0, requiresAcknowledgement: false });
-    } catch {
-      // Best-effort, same posture as acknowledge() above.
+    } catch (err) {
+      // Surfaced, same reasoning as acknowledge() above.
+      Alert.alert("Couldn't force-resume", err instanceof Error ? err.message : "Network error — try again.");
     } finally {
       setForceResuming(false);
     }

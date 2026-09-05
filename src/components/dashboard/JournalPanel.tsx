@@ -737,7 +737,7 @@ function ConfluenceBreakdownTable({
             ) : (
               <>
                 <Text style={styles.breakdownCell}>
-                  {bucket.winRate!.toFixed(0)}%
+                  {bucket.winRate === null ? "—" : `${bucket.winRate.toFixed(0)}%`}
                 </Text>
                 <Text
                   style={[

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ExecuteResponse, HigherTimeframeTrends, Signal } from "@/lib/api/types";
 import { formatPrice } from "@/lib/api/format";
 import { DashboardColors } from "@/constants/dashboardColors";
@@ -65,6 +65,11 @@ export function TradeProposalCard({
     setRejecting(true);
     try {
       await onReject();
+    } catch (err) {
+      // Previously uncaught: onReject() throwing left an unhandled rejection while the
+      // card still closed via `finally` below, silently hiding a failed reject call --
+      // the proposal may still be live server-side with no sign anything went wrong.
+      Alert.alert("Couldn't dismiss", err instanceof Error ? err.message : "Network error — try again.");
     } finally {
       setRejecting(false);
       onDismiss();
@@ -241,5 +246,13 @@ export function describeExecuteResponse(result: ExecuteResponse): string {
       return "Could not confirm this trade — try again";
     case "network_error":
       return "Network error — try again";
+    default:
+      // executeSignalRequest casts the raw response JSON to ExecuteResponse with no
+      // runtime validation (see its own doc comment) -- a proxy/platform error page or a
+      // future server-side status rename can hand back a `status` this switch doesn't
+      // recognize. Falling through to an implicit `undefined` after a live-money execute
+      // tap left the operator with no confirmation and no error, unable to tell whether
+      // the order filled.
+      return `Unexpected response (${(result as { status?: unknown }).status ?? "unknown"}) — check Positions before retrying`;
   }
 }

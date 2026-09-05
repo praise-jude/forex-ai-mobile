@@ -59,7 +59,7 @@ function CalibrationRow({ label, bucket, minSamples }: { label: string; bucket: 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Real win rate</Text>
-            <Text style={styles.statValue}>{bucket.winRate?.toFixed(1)}%</Text>
+            <Text style={styles.statValue}>{bucket.winRate === null ? "—" : `${bucket.winRate.toFixed(1)}%`}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Average R</Text>

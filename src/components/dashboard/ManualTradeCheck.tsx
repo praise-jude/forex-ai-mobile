@@ -205,7 +205,13 @@ export function ManualTradeCheck() {
           <Text style={styles.fieldLabel}>Risk %</Text>
           <TextInput
             value={String(riskPct)}
-            onChangeText={(text) => setRiskPct(Number(text) || riskPct)}
+            onChangeText={(text) => {
+              // Number(text) || riskPct previously discarded "0" (falsy) and reverted to
+              // the stale value instead of accepting it -- Number.isFinite lets a real 0%
+              // through while still rejecting non-numeric input.
+              const parsed = Number(text);
+              if (Number.isFinite(parsed)) setRiskPct(parsed);
+            }}
             keyboardType="numeric"
             style={styles.riskInput}
           />
