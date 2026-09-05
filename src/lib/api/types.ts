@@ -222,6 +222,89 @@ export interface HigherTimeframeTrends {
   h1: "bullish" | "bearish" | "neutral";
 }
 
+// Mirrors forex-ai (web)'s lib/market/pairAnalysisJob.ts -- see that file's own doc
+// comment for exactly what each stage/field computes. Every value here is real; nothing
+// is invented client-side.
+export type AnalysisStage =
+  | "market_data"
+  | "structure"
+  | "smc_engine"
+  | "range_engine"
+  | "multi_timeframe"
+  | "consensus"
+  | "risk_validation"
+  | "final";
+
+export interface ExtendedTimeframeTrends {
+  m15: "bullish" | "bearish" | "neutral";
+  m30: "bullish" | "bearish" | "neutral";
+  h1: "bullish" | "bearish" | "neutral";
+  h4: "bullish" | "bearish" | "neutral";
+  d1: "bullish" | "bearish" | "neutral";
+}
+
+export interface EngineVerdict {
+  engine: "smc" | "signer_b" | "range_engine" | "timeframe_15m" | "timeframe_30m" | "timeframe_1h" | "timeframe_4h" | "timeframe_1d";
+  direction: "long" | "short" | "neutral" | "unavailable";
+}
+
+export interface RiskValidationCheck {
+  allowed: boolean;
+  reason?: string;
+}
+
+export interface RiskValidationSummary {
+  spread: RiskValidationCheck;
+  priceDrift: RiskValidationCheck;
+  correlatedExposure: RiskValidationCheck;
+  executionPolicy: RiskValidationCheck;
+}
+
+export interface PairAnalysisResult {
+  pair: Pair;
+  timeframe: Timeframe;
+  time: number;
+  regime: MarketRegime;
+  timeframeTrends: ExtendedTimeframeTrends;
+  bullish: SignalEvaluation | null;
+  bearish: SignalEvaluation | null;
+  rangeEvaluation: SignalEvaluation;
+  buyPct: number;
+  sellPct: number;
+  noTradePct: number;
+  conflicted: boolean;
+  direction: "long" | "short" | "no_trade";
+  engines: EngineVerdict[];
+  riskValidation: RiskValidationSummary | null;
+}
+
+export interface AnalysisJob {
+  id: string;
+  pair: Pair;
+  timeframe: Timeframe;
+  createdAt: number;
+  stage: AnalysisStage;
+  stageStartedAt: number;
+  status: "running" | "complete" | "failed";
+  failReason?: "insufficient_data" | "stale_data";
+  failMessage?: string;
+  /** Built up incrementally, field by field, as each real stage completes on the server
+   * (see forex-ai (web)'s lib/market/pairAnalysisJob.ts) -- only guaranteed to be a
+   * complete PairAnalysisResult once `status === "complete"`. */
+  result: Partial<PairAnalysisResult> | null;
+}
+
+/** Mirrors forex-ai (web)'s GET /api/signals/analyze/recheck response -- powers the
+ * "Check a Pair" signal-weakening monitor (see SignalWeakeningMonitor.tsx). */
+export interface SignalRecheckResponse {
+  pair: Pair;
+  timeframe: Timeframe;
+  direction: "long" | "short";
+  evaluation: SignalEvaluation;
+  opposingSignal: boolean;
+  time: number;
+}
+
 export interface PredictionUpdate {
   pair: Pair;
   timeframe: Timeframe;

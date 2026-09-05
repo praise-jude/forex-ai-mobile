@@ -1,30 +1,36 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { PAIRS, type EngineModeResponse, type ExecuteResponse, type Pair, type PredictionUpdate, type Timeframe } from "@/lib/api/types";
-import { ApiError, useApi } from "@/lib/api/client";
+import { PAIRS, type AnalysisJob, type EngineModeResponse, type ExecuteResponse, type Pair, type PairAnalysisResult, type Timeframe } from "@/lib/api/types";
+import { useApi } from "@/lib/api/client";
 import { useSettings } from "@/lib/api/SettingsContext";
 import { executeSignalRequest } from "@/lib/api/executionClient";
 import { describeExecuteResponse } from "./TradeProposalCard";
 import { buildConfirmPhrase } from "@/lib/voice/grammar";
 import { DashboardColors } from "@/constants/dashboardColors";
-import { PredictionCard } from "./PredictionCard";
 import { TimeframeSelector } from "./TimeframeSelector";
+import { AnalysisProgressScreen } from "./AnalysisProgressScreen";
+import { AnalysisResultCard, qualifyingSignal } from "./AnalysisResultCard";
+import { SignalWeakeningMonitor } from "./SignalWeakeningMonitor";
 
 /**
  * Mirrors forex-ai's web OnDemandSignalWidget.tsx. Pick any tracked pair, tap Analyze,
- * get the real SMC engine's current read for it right now via the same
- * /api/signals/evaluate endpoint the web dashboard calls -- not a separate or
- * simplified analysis. A qualifying result can then be placed as a real trade via the
- * same publish-then-execute flow the web widget uses -- no separate execution path.
+ * and watch a real, multi-stage analysis job (see pairAnalysisJob.ts) run through
+ * market data -> structure -> SMC -> Range Engine -> multi-timeframe -> consensus ->
+ * risk validation -> final decision, every stage/percentage tied to genuine
+ * computation. A qualifying result can then be placed as a real trade via the same
+ * publish-then-execute flow the web widget uses -- no separate execution path, and
+ * nothing here can itself place an order (see pairAnalysisJob.ts's own Auto Pilot
+ * boundary doc comment).
  */
 export function OnDemandSignalCheck() {
   const api = useApi();
   const { serverUrl, authHeader } = useSettings();
   const [pair, setPair] = useState<Pair>(PAIRS[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
-  const [result, setResult] = useState<PredictionUpdate | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState<PairAnalysisResult | null>(null);
+  const [failedJob, setFailedJob] = useState<AnalysisJob | null>(null);
+  const [invalidated, setInvalidated] = useState(false);
 
   const [riskPct, setRiskPct] = useState(1);
   const [placing, setPlacing] = useState(false);
@@ -40,19 +46,12 @@ export function OnDemandSignalCheck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function analyze() {
-    setLoading(true);
-    setError(null);
+  function analyze() {
+    setResult(null);
+    setFailedJob(null);
     setPlaceResult(null);
-    try {
-      const update = await api.get<PredictionUpdate>(`/api/signals/evaluate?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}`);
-      setResult(update);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't analyze that pair right now.");
-      setResult(null);
-    } finally {
-      setLoading(false);
-    }
+    setInvalidated(false);
+    setAnalyzing(true);
   }
 
   // Registers this on-demand read as a real, tracked signal (journaled, notified --
@@ -60,8 +59,9 @@ export function OnDemandSignalCheck() {
   // same /api/signals/{id}/execute route every other signal uses, including every one of
   // its risk checks (daily loss, correlation, price drift, spread, sizing).
   async function placeTrade() {
-    if (!result || result.evaluation.status !== "signal") return;
-    const signal = result.evaluation.signal;
+    if (!result) return;
+    const signal = qualifyingSignal(result);
+    if (!signal) return;
     setPlacing(true);
     setPlaceResult(null);
     try {
@@ -75,7 +75,8 @@ export function OnDemandSignalCheck() {
     }
   }
 
-  const canPlaceTrade = result?.evaluation.status === "signal" && !placeResult;
+  const qualified = result ? qualifyingSignal(result) : null;
+  const canPlaceTrade = qualified !== null && !invalidated && !placeResult;
 
   return (
     <View style={styles.card}>
@@ -101,15 +102,47 @@ export function OnDemandSignalCheck() {
 
       <View style={styles.controlsRow}>
         <TimeframeSelector value={timeframe} onChange={setTimeframe} />
-        <Pressable onPress={analyze} disabled={loading} style={[styles.analyzeButton, loading && styles.analyzeButtonDisabled]}>
-          {loading ? <ActivityIndicator size="small" color={DashboardColors.sky} /> : <Text style={styles.analyzeButtonText}>Analyze</Text>}
+        <Pressable onPress={analyze} disabled={analyzing} style={[styles.analyzeButton, analyzing && styles.analyzeButtonDisabled]}>
+          {analyzing ? <ActivityIndicator size="small" color={DashboardColors.sky} /> : <Text style={styles.analyzeButtonText}>Analyze Trade</Text>}
         </Pressable>
       </View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {analyzing && (
+        <View style={styles.result}>
+          <AnalysisProgressScreen
+            pair={pair}
+            timeframe={timeframe}
+            onComplete={(job) => {
+              setResult(job.result as PairAnalysisResult);
+              setAnalyzing(false);
+            }}
+            onFailed={(job) => {
+              setFailedJob(job);
+              setAnalyzing(false);
+            }}
+          />
+        </View>
+      )}
+
+      {failedJob && (
+        <View style={styles.result}>
+          <Text style={styles.errorTitle}>{failedJob.failReason === "stale_data" ? "STALE MARKET DATA" : "ANALYSIS FAILED"}</Text>
+          <Text style={styles.errorText}>{failedJob.failMessage}</Text>
+        </View>
+      )}
+
       {result && (
         <View style={styles.result}>
-          <PredictionCard update={result} />
+          <AnalysisResultCard result={result} />
+          {qualified && (result.direction === "long" || result.direction === "short") && (
+            <SignalWeakeningMonitor
+              pair={pair}
+              timeframe={timeframe}
+              direction={result.direction}
+              originalConfidence={qualified.confidence}
+              onLevelChange={(level) => setInvalidated(level === "invalidated")}
+            />
+          )}
         </View>
       )}
 
@@ -119,7 +152,13 @@ export function OnDemandSignalCheck() {
             <Text style={styles.riskLabel}>Risk</Text>
             <TextInput
               value={String(riskPct)}
-              onChangeText={(text) => setRiskPct(Number(text) || riskPct)}
+              onChangeText={(text) => {
+                // Number(text) || riskPct previously discarded "0" (falsy) and reverted to
+                // the stale value instead of accepting it -- Number.isFinite lets a real 0%
+                // through while still rejecting non-numeric input.
+                const parsed = Number(text);
+                if (Number.isFinite(parsed)) setRiskPct(parsed);
+              }}
               keyboardType="numeric"
               style={styles.riskInput}
             />
@@ -169,6 +208,7 @@ const styles = StyleSheet.create({
   },
   analyzeButtonDisabled: { opacity: 0.6 },
   analyzeButtonText: { fontSize: 12, fontWeight: "700", color: DashboardColors.sky },
+  errorTitle: { fontSize: 13, fontWeight: "800", color: DashboardColors.rose },
   errorText: { fontSize: 12, fontWeight: "600", color: DashboardColors.amber },
   result: { marginTop: 2 },
   placeRow: {
