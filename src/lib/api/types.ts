@@ -47,7 +47,13 @@ export type Pair =
 //
 // USD/CHF swapped back out for USOIL on 2026-09-04, mirroring the web app (operator's
 // explicit request -- USOIL is a priority instrument, see the web types.ts comment).
-export const PAIRS: Pair[] = ["GBP/USD", "XAU/USD", "BTC/USD", "USOIL"];
+//
+// ETH/USD added on 2026-09-05, mirroring the web app -- a deliberate single-pair test
+// step (not the 3 first asked for) after a day with no further throttling/downgrade
+// events, given the above history of repeated reverts at higher pair counts. Same
+// failure mode as every prior drift if this list isn't kept in sync: a mobile-built
+// signal for a pair the web backend doesn't recognize gets rejected 400.
+export const PAIRS: Pair[] = ["GBP/USD", "XAU/USD", "BTC/USD", "USOIL", "ETH/USD"];
 
 export interface Candle {
   time: number;
