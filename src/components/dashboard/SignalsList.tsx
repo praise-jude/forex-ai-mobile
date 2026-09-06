@@ -2,9 +2,11 @@ import { memo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { CardStatus, Confluence, HigherTimeframeTrends, Signal } from "@/lib/api/types";
 import { formatPrice, relativeTime } from "@/lib/api/format";
+import { predictionHeadline } from "@/lib/api/predictionLabel";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { TradingRobotBadge } from "./TradingRobotBadge";
-import { DirectionBadge, directionTone } from "./DirectionBadge";
+import { DirectionBadge } from "./DirectionBadge";
+import { HEADLINE_TONE } from "./PredictionCard";
 import { SignerBBreakdown } from "./SignerBBreakdown";
 import { TradeProposalCard, describeExecuteResponse } from "./TradeProposalCard";
 
@@ -33,12 +35,6 @@ export const CONFLUENCE_LABEL: Record<Confluence, string> = {
   boundary_touch: "Boundary touch",
   rsi_extreme: "RSI extreme",
   rejection_candle: "Rejection candle",
-};
-
-const TIER_LABEL: Record<Signal["tier"], string> = {
-  strong_buy: "Strong buy",
-  buy: "Buy",
-  watch: "Watch",
 };
 
 const RESULT_TONE_COLOR: Record<"positive" | "negative" | "neutral", string> = {
@@ -152,7 +148,20 @@ const SignalCard = memo(function SignalCard({
         <TradingRobotBadge direction={signal.direction} />
         <View style={styles.cardHeaderRight}>
           <Text style={styles.pair}>{signal.pair}</Text>
-          <DirectionBadge tone={directionTone(signal.direction)} label={`${TIER_LABEL[signal.tier]} · ${signal.confidence.toFixed(0)}% · ${signal.timeframe}`} />
+          {/* A real, confirmed bug lived here: this badge's color came from
+           * signal.direction (correct), but its text came from a local TIER_LABEL map
+           * keyed on signal.tier alone -- "strong_buy"/"buy" are historical
+           * confidence-bucket names, NOT direction (see confidenceScore.ts/
+           * predictionLabel.ts's own doc comments -- a SHORT signal can genuinely have
+           * tier "buy"), so a real sell signal could render a red-toned badge that
+           * literally said "Buy". predictionHeadline() already gets this right
+           * (PredictionCard.tsx already uses it) -- reused here instead of a second,
+           * independently-diverged implementation of the same tier+direction logic.
+           * Mirrors forex-ai (web)'s identical fix. */}
+          {(() => {
+            const headline = predictionHeadline({ status: "signal", signal });
+            return <DirectionBadge tone={HEADLINE_TONE[headline]} label={`${headline} · ${signal.confidence.toFixed(0)}% · ${signal.timeframe}`} />;
+          })()}
           <Text style={styles.subScore}>
             {signal.source === "tradingview" ? "Source: TradingView" : `Direction ${signal.directionScore.toFixed(0)}% · Entry ${signal.entryScore.toFixed(0)}%`}
           </Text>
