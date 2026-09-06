@@ -387,6 +387,18 @@ export interface SignalsSnapshot {
 // or has it turned against it" (see positionRiskNarration.ts on the server).
 export type PositionRiskLevel = "aligned" | "caution" | "warning";
 
+/** Mirrors forex-ai (web)'s SetupValidity -- a second, more precise read alongside
+ * PositionRiskAssessment.level above, re-running the exact SMC + Signer B pipeline that
+ * originally justified the trade (see positionRiskNarration.ts's assessSetupValidity on
+ * the web backend). Deliberately two states, not three -- see that function's own doc
+ * comment for why "weakening" isn't tracked (yet). */
+export type SetupValidityStatus = "holding" | "invalidated";
+
+export interface SetupValidity {
+  status: SetupValidityStatus;
+  reason: string;
+}
+
 export interface PositionRiskAssessment {
   level: PositionRiskLevel;
   reason: string;
@@ -394,6 +406,9 @@ export interface PositionRiskAssessment {
    * EMA20/50 gap, only ever set for "caution" (a real distance to measure). Smaller
    * means closer to clearing; never a time estimate. */
   distancePct: number | null;
+  /** Null for a position opened outside this app, or one this app placed but can't
+   * re-check right now (e.g. insufficient candle history) -- never a fabricated status. */
+  setup: SetupValidity | null;
 }
 
 export interface PositionsResponse {

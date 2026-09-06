@@ -138,6 +138,18 @@ function PositionRow({
           )}
         </View>
       )}
+      {/* A second, more precise read alongside the HTF-based badge above -- re-runs the
+       * exact SMC + Signer B pipeline that originally justified this trade (see
+       * positionRiskNarration.ts's assessSetupValidity on the web backend), not just the
+       * broad regime/trend check risk.level already covers. Only shown when it's
+       * actually available (a position this app itself placed, with current candle
+       * history to re-check against) -- never a fabricated status for one opened
+       * outside the app. Mirrors forex-ai's web PositionsPanel.tsx. */}
+      {risk?.setup?.status === "invalidated" && (
+        <View style={styles.invalidatedBanner}>
+          <Text style={styles.invalidatedText}>🔴 Setup invalidated — {risk.setup.reason}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -208,4 +220,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   cautionText: { fontSize: 10.5, lineHeight: 14, color: DashboardColors.amber },
+  invalidatedBanner: {
+    marginTop: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: `${DashboardColors.rose}4d`,
+    backgroundColor: `${DashboardColors.rose}1a`,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  invalidatedText: { fontSize: 10.5, lineHeight: 14, color: DashboardColors.rose },
 });
