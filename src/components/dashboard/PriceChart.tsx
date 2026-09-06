@@ -5,7 +5,7 @@ import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
 import { usePolling } from "@/lib/api/usePolling";
 import { formatDurationRange, formatPrice } from "@/lib/api/format";
-import type { Candle, DurationStats, Pair, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
+import type { Candle, DurationStats, OpenPosition, Pair, PositionsResponse, PredictionUpdate, Signal, Timeframe } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 
 const POLL_INTERVAL_MS = 5000;
@@ -55,6 +55,14 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
     DURATION_POLL_INTERVAL_MS,
     isFocused
   );
+  // Same 1s cadence PositionsList.tsx already polls at -- cheap read of MetaApi's
+  // already-synced local terminal state, never a live broker round-trip (see
+  // metaApiConnection.ts's own doc comment on terminalState.positions).
+  const { data: positionsData } = usePolling(() => api.get<PositionsResponse>("/api/positions"), 1000, isFocused);
+  // Only ever the FIRST open position for this pair -- a real account could
+  // theoretically hold more than one, and drawing a path per position would just be
+  // visual noise. Mirrors forex-ai's web PriceChart.tsx.
+  const openPosition = positionsData?.positions.find((p) => p.pair === pair && p.openedAt !== undefined && p.takeProfit !== undefined);
 
   function onLayout(e: LayoutChangeEvent) {
     setWidth(e.nativeEvent.layout.width);
@@ -92,14 +100,25 @@ export function PriceChart({ pair, timeframe, prediction }: { pair: Pair; timefr
         {candles.length === 0 || width === 0 ? (
           <Text style={styles.placeholder}>{error ? error : "Loading candles…"}</Text>
         ) : (
-          <CandleChart candles={candles} pair={pair} width={width} height={CHART_HEIGHT} signal={signal} />
+          <CandleChart candles={candles} pair={pair} width={width} height={CHART_HEIGHT} signal={signal} openPosition={openPosition} />
         )}
       </View>
-      {signal && (
+      {/* An open position for this pair always wins over the prediction-based forecast
+       * -- once a trade is actually placed, its real entry/SL/TP are the meaningful
+       * thing to show, not an illustrative projection for a setup that may have
+       * already moved on. Mirrors forex-ai's web PriceChart.tsx. */}
+      {openPosition ? (
         <>
-          <Text style={styles.forecastBadge}>AI FORECAST &middot; PROJECTED PATH (illustrative, not a price prediction)</Text>
+          <Text style={styles.forecastBadge}>LIVE POSITION &middot; ENTRY &rarr; TARGET</Text>
           <Text style={styles.forecastBadge}>{describeDurationStats(durationStats)}</Text>
         </>
+      ) : (
+        signal && (
+          <>
+            <Text style={styles.forecastBadge}>AI FORECAST &middot; PROJECTED PATH (illustrative, not a price prediction)</Text>
+            <Text style={styles.forecastBadge}>{describeDurationStats(durationStats)}</Text>
+          </>
+        )
       )}
     </View>
   );
@@ -114,25 +133,35 @@ const CandleChart = memo(function CandleChart({
   width,
   height,
   signal,
+  openPosition,
 }: {
   candles: Candle[];
   pair: Pair;
   width: number;
   height: number;
   signal: Signal | null;
+  openPosition: OpenPosition | undefined;
 }) {
   const padding = { top: 8, bottom: 8, left: 4, right: 56 };
   const plotWidth = Math.max(width - padding.left - padding.right, 1);
   const plotHeight = Math.max(height - padding.top - padding.bottom, 1);
 
+  // An open position for this pair always wins over the prediction-based forecast --
+  // once a trade is actually placed, its real entry/SL/TP are the meaningful thing to
+  // show, not an illustrative projection for a setup that may have already moved on.
+  // Mirrors forex-ai's web PriceChart.tsx.
+  const showingPosition = openPosition !== undefined;
+
   // The real entry/SL/TP/zone levels are folded into the visible price range so the
   // annotation lines and forecast curve are never clipped above/below the candles --
   // never fabricated, just widening the same real high/low the candles already set.
-  const annotationPrices = signal
-    ? [signal.entry, signal.stopLoss, signal.takeProfit, signal.takeProfit2, signal.zoneTop, signal.zoneBottom].filter(
-        (p): p is number => p !== undefined
-      )
-    : [];
+  const annotationPrices = showingPosition
+    ? [openPosition.openPrice, openPosition.stopLoss, openPosition.takeProfit].filter((p): p is number => p !== undefined)
+    : signal
+      ? [signal.entry, signal.stopLoss, signal.takeProfit, signal.takeProfit2, signal.zoneTop, signal.zoneBottom].filter(
+          (p): p is number => p !== undefined
+        )
+      : [];
   const high = Math.max(...candles.map((c) => c.high), ...annotationPrices);
   const low = Math.min(...candles.map((c) => c.low), ...annotationPrices);
   const range = Math.max(high - low, 1e-9);
@@ -153,25 +182,47 @@ const CandleChart = memo(function CandleChart({
   const last = candles[candles.length - 1];
   const lastIndex = candles.length - 1;
 
-  const annotations: { price: number; color: string; label: string }[] = signal
+  const annotations: { price: number; color: string; label: string }[] = showingPosition
     ? [
-        { price: signal.entry, color: DashboardColors.textSecondary, label: "Entry" },
-        { price: signal.stopLoss, color: DashboardColors.rose, label: "SL" },
-        { price: signal.takeProfit, color: DashboardColors.emerald, label: "TP1" },
-        { price: signal.takeProfit2, color: DashboardColors.emerald, label: "TP2" },
-        ...(signal.zoneTop !== undefined ? [{ price: signal.zoneTop, color: DashboardColors.sky, label: "Zone" }] : []),
-        ...(signal.zoneBottom !== undefined ? [{ price: signal.zoneBottom, color: DashboardColors.sky, label: "Zone" }] : []),
+        { price: openPosition.openPrice, color: DashboardColors.textSecondary, label: "Entry" },
+        ...(openPosition.stopLoss !== undefined ? [{ price: openPosition.stopLoss, color: DashboardColors.rose, label: "SL" }] : []),
+        ...(openPosition.takeProfit !== undefined ? [{ price: openPosition.takeProfit, color: DashboardColors.emerald, label: "TP" }] : []),
       ]
-    : [];
+    : signal
+      ? [
+          { price: signal.entry, color: DashboardColors.textSecondary, label: "Entry" },
+          { price: signal.stopLoss, color: DashboardColors.rose, label: "SL" },
+          { price: signal.takeProfit, color: DashboardColors.emerald, label: "TP1" },
+          { price: signal.takeProfit2, color: DashboardColors.emerald, label: "TP2" },
+          ...(signal.zoneTop !== undefined ? [{ price: signal.zoneTop, color: DashboardColors.sky, label: "Zone" }] : []),
+          ...(signal.zoneBottom !== undefined ? [{ price: signal.zoneBottom, color: DashboardColors.sky, label: "Zone" }] : []),
+        ]
+      : [];
+
+  // Unlike forex-ai's web PriceChart.tsx (which plots Point A at the position's real
+  // openedAt timestamp on a genuine time axis), this chart's x-axis is index-based, not
+  // time-based -- there's no real "when" to place Point A at, so it's always anchored to
+  // the last loaded candle's slot, same as the AI forecast curve below already is. Point
+  // B is the same illustrative distance past that -- same visual language, just solid
+  // (real trade) instead of dotted (not yet real).
+  const positionPathColor = openPosition?.direction === "long" ? DashboardColors.emerald : DashboardColors.rose;
+  const positionPoints =
+    showingPosition && openPosition.takeProfit !== undefined
+      ? [
+          `${x(lastIndex)},${y(openPosition.openPrice)}`,
+          `${x(lastIndex + FORECAST_BAR_SPACING)},${y(openPosition.takeProfit)}`,
+        ].join(" ")
+      : null;
 
   const forecastColor = signal?.direction === "long" ? DashboardColors.emerald : DashboardColors.rose;
-  const forecastPoints = signal
-    ? [
-        `${x(lastIndex)},${y(last.close)}`,
-        `${x(lastIndex + FORECAST_BAR_SPACING)},${y(signal.takeProfit)}`,
-        `${x(lastIndex + FORECAST_BAR_SPACING * 2)},${y(signal.takeProfit2)}`,
-      ].join(" ")
-    : null;
+  const forecastPoints =
+    !showingPosition && signal
+      ? [
+          `${x(lastIndex)},${y(last.close)}`,
+          `${x(lastIndex + FORECAST_BAR_SPACING)},${y(signal.takeProfit)}`,
+          `${x(lastIndex + FORECAST_BAR_SPACING * 2)},${y(signal.takeProfit2)}`,
+        ].join(" ")
+      : null;
 
   return (
     <View style={{ width, height }}>
@@ -212,6 +263,7 @@ const CandleChart = memo(function CandleChart({
             strokeDasharray="2,3"
           />
         ))}
+        {positionPoints && <Polyline points={positionPoints} fill="none" stroke={positionPathColor} strokeWidth={2} />}
         {forecastPoints && <Polyline points={forecastPoints} fill="none" stroke={forecastColor} strokeWidth={2} strokeDasharray="1,3" />}
       </Svg>
       {/* Plain RN <Text> overlay for axis labels -- react-native-svg's own <Text> needs

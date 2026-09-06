@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useIsFocused } from "expo-router";
 import { useApi } from "@/lib/api/client";
@@ -5,6 +6,19 @@ import { usePolling } from "@/lib/api/usePolling";
 import { formatDurationRange, formatPrice } from "@/lib/api/format";
 import type { DurationStats, OpenPosition, Pair, PositionRiskAssessment, PositionsResponse } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
+
+// "Xm Ys" while under an hour (feels like it's actually counting, matching the 1s poll
+// below), "Xh Ym" beyond that -- no days tier, since a position open that long is
+// already well past where minute precision matters. Mirrors forex-ai's own
+// PositionsPanel.tsx formatDuration.
+function formatDuration(openedAt: number, now: number): string {
+  const totalSeconds = Math.max(0, Math.floor((now - openedAt) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
 
 // Real closed-trade duration data changes only when a trade actually closes -- far
 // rarer than POLL_INTERVAL_MS's 1s cadence, so this gets its own slower interval.
@@ -39,7 +53,17 @@ const RISK_BADGE_LABEL: Record<PositionRiskAssessment["level"], string> = {
   warning: "Warning",
 };
 
-function PositionRow({ position, risk, isFocused }: { position: OpenPosition; risk: PositionRiskAssessment | undefined; isFocused: boolean }) {
+function PositionRow({
+  position,
+  risk,
+  isFocused,
+  now,
+}: {
+  position: OpenPosition;
+  risk: PositionRiskAssessment | undefined;
+  isFocused: boolean;
+  now: number;
+}) {
   const api = useApi();
   const isLong = position.direction === "long";
   const inProfit = position.profit >= 0;
@@ -74,6 +98,15 @@ function PositionRow({ position, risk, isFocused }: { position: OpenPosition; ri
           {formatPrice(position.pair, position.openPrice)} → {formatPrice(position.pair, position.currentPrice)}
         </Text>
       </View>
+      {/* Only for a trade this app itself placed -- openedAt is undefined for a position
+          opened directly on the broker outside the app, and there's no real "when" to
+          count from for those. Mirrors forex-ai's web PositionsPanel.tsx. */}
+      {position.openedAt !== undefined && (
+        <View style={styles.bottomLine}>
+          <Text style={styles.meta}>Open for</Text>
+          <Text style={styles.meta}>{formatDuration(position.openedAt, now)}</Text>
+        </View>
+      )}
       {/* A real, historically-grounded read on this pair's own past trades -- never a
           timing prediction for THIS position. Reassuring context on a winner, an
           explicit caution cue on a loser running past the typical time-to-stop window. */}
@@ -116,6 +149,16 @@ export function PositionsList() {
   const isFocused = useIsFocused();
   const { data } = usePolling(() => api.get<PositionsResponse>("/api/positions"), POLL_INTERVAL_MS, isFocused);
 
+  // Drives the "Open for" duration above -- a real ticking clock, not just a value read
+  // fresh on every poll-driven re-render (which would freeze between polls instead of
+  // counting). Mirrors forex-ai's web PositionsPanel.tsx.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isFocused) return;
+    const tickId = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tickId);
+  }, [isFocused]);
+
   return (
     <View>
       <View style={styles.header}>
@@ -127,7 +170,7 @@ export function PositionsList() {
       ) : (
         <View style={styles.list}>
           {data.positions.map((position) => (
-            <PositionRow key={position.id} position={position} risk={data.risk[position.id]} isFocused={isFocused} />
+            <PositionRow key={position.id} position={position} risk={data.risk[position.id]} isFocused={isFocused} now={now} />
           ))}
         </View>
       )}
