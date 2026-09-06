@@ -390,9 +390,8 @@ export type PositionRiskLevel = "aligned" | "caution" | "warning";
 /** Mirrors forex-ai (web)'s SetupValidity -- a second, more precise read alongside
  * PositionRiskAssessment.level above, re-running the exact SMC + Signer B pipeline that
  * originally justified the trade (see positionRiskNarration.ts's assessSetupValidity on
- * the web backend). Deliberately two states, not three -- see that function's own doc
- * comment for why "weakening" isn't tracked (yet). */
-export type SetupValidityStatus = "holding" | "invalidated";
+ * the web backend). */
+export type SetupValidityStatus = "holding" | "weakened" | "invalidated";
 
 export interface SetupValidity {
   status: SetupValidityStatus;

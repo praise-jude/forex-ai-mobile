@@ -150,6 +150,11 @@ function PositionRow({
           <Text style={styles.invalidatedText}>🔴 Setup invalidated — {risk.setup.reason}</Text>
         </View>
       )}
+      {risk?.setup?.status === "weakened" && (
+        <View style={styles.weakenedBanner}>
+          <Text style={styles.weakenedText}>🟡 Setup weakening — {risk.setup.reason}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -230,4 +235,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   invalidatedText: { fontSize: 10.5, lineHeight: 14, color: DashboardColors.rose },
+  weakenedBanner: {
+    marginTop: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: `${DashboardColors.amber}4d`,
+    backgroundColor: `${DashboardColors.amber}1a`,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  weakenedText: { fontSize: 10.5, lineHeight: 14, color: DashboardColors.amber },
 });
