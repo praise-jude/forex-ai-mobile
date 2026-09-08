@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { PAIRS, type EngineModeResponse, type ExecuteResponse, type Pair, type Signal } from "@/lib/api/types";
+import { PAIRS, type EngineModeResponse, type ExecuteResponse, type MarketRegime, type Pair, type PerformanceStats, type Signal } from "@/lib/api/types";
 import { ApiError, useApi } from "@/lib/api/client";
 import { useSettings } from "@/lib/api/SettingsContext";
 import { executeSignalRequest } from "@/lib/api/executionClient";
@@ -16,6 +16,7 @@ interface ManualSignalResponse {
 
 interface SuggestResponse {
   entry?: number;
+  regime?: MarketRegime;
   stopLoss?: number;
   takeProfit?: number;
   error?: string;
@@ -61,11 +62,29 @@ export function ManualTradeCheck() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placeResult, setPlaceResult] = useState<ExecuteResponse | null>(null);
+  const [regime, setRegime] = useState<MarketRegime | undefined>(undefined);
+  const [rangePerformance, setRangePerformance] = useState<PerformanceStats | null>(null);
 
   useEffect(() => {
     api
       .get<EngineModeResponse>("/api/engine-mode")
       .then((body) => setRiskPct(body.riskPerTradePct))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mirrors forex-ai's web ManualTradeWidget.tsx -- the operator's OWN whole-account
+  // track record trading during a "range" regime, confirmed from a direct journal review
+  // (2026-09-08): every significant loss on record was "range"-tagged, several times
+  // larger than the many small range-regime wins around them. Never a block -- just the
+  // real risk made visible before the click.
+  useEffect(() => {
+    api
+      .get<{ breakdownByRegime?: Record<string, PerformanceStats> }>("/api/trade-journal")
+      .then((body) => {
+        const range = body.breakdownByRegime?.range;
+        if (range && range.count > 0) setRangePerformance(range);
+      })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -81,6 +100,7 @@ export function ManualTradeCheck() {
       .then((body) => {
         if (cancelled) return;
         if (typeof body.entry === "number") setEntry(body.entry);
+        setRegime(body.regime);
         if (typeof body.stopLoss === "number" && typeof body.takeProfit === "number") {
           setStopLoss(formatPrice(pair, body.stopLoss));
           setTakeProfit(formatPrice(pair, body.takeProfit));
@@ -186,6 +206,15 @@ export function ManualTradeCheck() {
         </Text>
       )}
 
+      {regime === "range" && rangePerformance && (
+        <Text style={styles.regimeWarningText}>
+          ⚠️ {pair} is currently in a range regime. Your own history trading range conditions: {rangePerformance.winRate.toFixed(0)}% win
+          rate across {rangePerformance.count} trades, but a{" "}
+          {rangePerformance.profitFactor === null ? "n/a" : rangePerformance.profitFactor.toFixed(2)} profit factor -- occasional losses
+          have outweighed the many small wins. Not a block, just the real number before you place it.
+        </Text>
+      )}
+
       {planText ? (
         <Text style={styles.planText}>{planText}</Text>
       ) : (
@@ -278,6 +307,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   hintText: { fontSize: 11, color: DashboardColors.textMuted },
+  regimeWarningText: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: DashboardColors.amber,
+    backgroundColor: DashboardColors.amberBg,
+    borderRadius: 8,
+    padding: 10,
+  },
   fieldsRow: { flexDirection: "row", gap: 8 },
   field: { flex: 1 },
   fieldLabel: { fontSize: 11, color: DashboardColors.textMuted, marginBottom: 4 },
