@@ -282,6 +282,10 @@ export interface PairAnalysisResult {
   direction: "long" | "short" | "no_trade";
   engines: EngineVerdict[];
   riskValidation: RiskValidationSummary | null;
+  /** A real preview of what a qualifying trade would risk in account currency, at the
+   * account's own currently-configured riskPerTradePct. Null whenever no qualifying
+   * direction exists yet or account balance isn't available. */
+  moneyAtRisk: { balance: number; riskPct: number; amount: number } | null;
 }
 
 export interface AnalysisJob {

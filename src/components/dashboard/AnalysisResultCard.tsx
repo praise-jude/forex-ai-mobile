@@ -4,7 +4,8 @@ import { DashboardColors } from "@/constants/dashboardColors";
 import { ProbabilityBar } from "./ProbabilityBar";
 import { AiConsensusPanel } from "./AiConsensusPanel";
 import { PointRouteCard } from "./PointRouteCard";
-import { describeNoTradeReason } from "@/lib/api/noTradeReason";
+import { SetupQualityBreakdown } from "./SetupQualityBreakdown";
+import { describeNoTradeReason, REGIME_LABEL } from "@/lib/api/noTradeReason";
 
 /** The one real "did this fully qualify" check, shared between this card's own STATUS
  * row and OnDemandSignalCheck.tsx's Place Trade gating -- a real signal cleared every
@@ -69,7 +70,10 @@ export function AnalysisResultCard({ result }: { result: PairAnalysisResult }) {
         <Text style={styles.pair}>{result.pair}</Text>
         <Text style={styles.subheading}>AI TRADE ANALYSIS</Text>
       </View>
-      <Text style={styles.headline}>{headline}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.headline}>{headline}</Text>
+        <Text style={styles.regimeBadge}>Regime: {REGIME_LABEL[result.regime]}</Text>
+      </View>
 
       <ProbabilityBar buyPct={result.buyPct} sellPct={result.sellPct} noTradePct={result.noTradePct} />
 
@@ -87,8 +91,19 @@ export function AnalysisResultCard({ result }: { result: PairAnalysisResult }) {
         <>
           <View style={styles.divider} />
           <PointRouteCard signal={winningSignal} />
+          <SetupQualityBreakdown signal={winningSignal} regime={result.regime} />
         </>
       )}
+
+      <View style={styles.divider} />
+      <View style={styles.riskRow}>
+        <Text style={styles.riskLabel}>Range Engine</Text>
+        <Text style={[styles.riskValue, { color: result.rangeEvaluation.status === "signal" ? DashboardColors.sky : DashboardColors.textMuted }]}>
+          {result.rangeEvaluation.status === "signal"
+            ? `${result.rangeEvaluation.signal.direction === "long" ? "LONG" : "SHORT"} setup found`
+            : describeNoTradeReason(result.rangeEvaluation.reason, result.regime)}
+        </Text>
+      </View>
 
       <View style={styles.divider} />
       <AiConsensusPanel result={result} />
@@ -129,6 +144,16 @@ export function AnalysisResultCard({ result }: { result: PairAnalysisResult }) {
         </>
       )}
 
+      {result.moneyAtRisk && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.riskRow}>
+            <Text style={styles.riskLabel}>Money at risk ({result.moneyAtRisk.riskPct}% of balance)</Text>
+            <Text style={styles.moneyAtRiskValue}>-${result.moneyAtRisk.amount.toFixed(2)}</Text>
+          </View>
+        </>
+      )}
+
       <View style={styles.divider} />
       <View style={styles.statusRow}>
         <Text style={styles.statusLabel}>STATUS</Text>
@@ -146,6 +171,18 @@ const styles = StyleSheet.create({
   pair: { fontSize: 16, fontWeight: "800", color: DashboardColors.textPrimary },
   subheading: { fontSize: 10, fontWeight: "700", color: DashboardColors.textMuted, letterSpacing: 0.5 },
   headline: { fontSize: 20, fontWeight: "800", color: DashboardColors.textPrimary },
+  regimeBadge: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    color: DashboardColors.textMuted,
+    backgroundColor: DashboardColors.surfaceAlt,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  moneyAtRiskValue: { fontSize: 13, fontWeight: "800", color: DashboardColors.rose },
   noTradeReason: { fontSize: 12, color: DashboardColors.textMuted },
   divider: { height: 1, backgroundColor: DashboardColors.border },
   timeframeRow: { flexDirection: "row", justifyContent: "space-between" },
