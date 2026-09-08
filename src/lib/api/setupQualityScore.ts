@@ -1,4 +1,4 @@
-import type { MarketRegime, Signal } from "./types";
+import type { MarketRegime, RiskValidationSummary, Signal } from "./types";
 
 // Mirrors forex-ai's lib/market/setupQualityScore.ts exactly -- hand-copied here for the
 // same reason every other type/helper in this app is (see types.ts's own top-of-file
@@ -67,4 +67,20 @@ export function scoreSetupQuality(signal: Signal, regime: MarketRegime): SetupQu
   const total = smc + trend + momentum + liquidity + volatility + newsRisk + session;
 
   return { smc, trend, momentum, liquidity, volatility, newsRisk, session, total };
+}
+
+export type RiskLevel = "low" | "medium" | "high";
+
+// Mirrors forex-ai's web setupQualityScore.ts deriveRiskLevel exactly -- see that file's
+// own doc comment for the reasoning. Score bands are the operator's own (2026-09-08).
+const RISK_LEVEL_SCORE_CUTOFF = 70;
+
+export function deriveRiskLevel(score: SetupQualityBreakdown, riskValidation: RiskValidationSummary | null): RiskLevel {
+  if (
+    riskValidation &&
+    (!riskValidation.spread.allowed || !riskValidation.priceDrift.allowed || !riskValidation.correlatedExposure.allowed || !riskValidation.executionPolicy.allowed)
+  ) {
+    return "high";
+  }
+  return score.total >= RISK_LEVEL_SCORE_CUTOFF ? "low" : "medium";
 }

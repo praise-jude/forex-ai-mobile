@@ -6,6 +6,13 @@ import { AiConsensusPanel } from "./AiConsensusPanel";
 import { PointRouteCard } from "./PointRouteCard";
 import { SetupQualityBreakdown } from "./SetupQualityBreakdown";
 import { describeNoTradeReason, REGIME_LABEL } from "@/lib/api/noTradeReason";
+import { deriveRiskLevel, scoreSetupQuality, type RiskLevel } from "@/lib/api/setupQualityScore";
+
+const RISK_LEVEL_DISPLAY: Record<RiskLevel, { label: string; color: string; background: string }> = {
+  low: { label: "🟢 LOW RISK", color: DashboardColors.emerald, background: DashboardColors.emeraldBg },
+  medium: { label: "🟡 MEDIUM RISK", color: DashboardColors.amber, background: DashboardColors.amberBg },
+  high: { label: "🔴 HIGH RISK", color: DashboardColors.rose, background: DashboardColors.roseBg },
+};
 
 /** The one real "did this fully qualify" check, shared between this card's own STATUS
  * row and OnDemandSignalCheck.tsx's Place Trade gating -- a real signal cleared every
@@ -64,6 +71,8 @@ export function AnalysisResultCard({ result }: { result: PairAnalysisResult }) {
         ? "🔴 SELL"
         : "⚪ NO TRADE";
 
+  const riskLevel = winningSignal ? deriveRiskLevel(scoreSetupQuality(winningSignal, result.regime), result.riskValidation) : null;
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -74,6 +83,12 @@ export function AnalysisResultCard({ result }: { result: PairAnalysisResult }) {
         <Text style={styles.headline}>{headline}</Text>
         <Text style={styles.regimeBadge}>Regime: {REGIME_LABEL[result.regime]}</Text>
       </View>
+
+      {riskLevel && (
+        <View style={[styles.riskLevelBanner, { backgroundColor: RISK_LEVEL_DISPLAY[riskLevel].background }]}>
+          <Text style={[styles.riskLevelText, { color: RISK_LEVEL_DISPLAY[riskLevel].color }]}>{RISK_LEVEL_DISPLAY[riskLevel].label}</Text>
+        </View>
+      )}
 
       <ProbabilityBar buyPct={result.buyPct} sellPct={result.sellPct} noTradePct={result.noTradePct} />
 
@@ -183,6 +198,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   moneyAtRiskValue: { fontSize: 13, fontWeight: "800", color: DashboardColors.rose },
+  riskLevelBanner: { borderRadius: 8, paddingVertical: 8, alignItems: "center" },
+  riskLevelText: { fontSize: 13, fontWeight: "800" },
   noTradeReason: { fontSize: 12, color: DashboardColors.textMuted },
   divider: { height: 1, backgroundColor: DashboardColors.border },
   timeframeRow: { flexDirection: "row", justifyContent: "space-between" },
