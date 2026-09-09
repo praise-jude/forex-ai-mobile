@@ -286,6 +286,16 @@ export interface PairAnalysisResult {
    * account's own currently-configured riskPerTradePct. Null whenever no qualifying
    * direction exists yet or account balance isn't available. */
   moneyAtRisk: { balance: number; riskPct: number; amount: number } | null;
+  /** Signer B's own real, independent confidence -- a deliberately SEPARATE reading from
+   * buyPct/sellPct above. Those answer "did a genuine trade setup qualify" and correctly
+   * collapse to 0/0/100 the moment SMC/Range Engine hit a hard gate (weak ADX, low
+   * volatility, outside the killzone, no setup, trend disagreement) -- which happens on
+   * most real checks, even during a clearly-trending market, since neither engine trades
+   * a quiet trend continuation. marketBias runs the moment the killzone/data gates pass,
+   * regardless of whether SMC's own additional structural gates found anything. Never a
+   * trade signal on its own; "unavailable" only when the same gates blocking buyPct/
+   * sellPct entirely also block this. See forex-ai's pairAnalysisJob.ts/types.ts. */
+  marketBias: { direction: "long" | "short" | "neutral" | "unavailable"; confidence: number };
 }
 
 export interface AnalysisJob {

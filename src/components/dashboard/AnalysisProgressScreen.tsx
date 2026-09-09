@@ -5,6 +5,7 @@ import { usePolling } from "@/lib/api/usePolling";
 import type { AnalysisJob, AnalysisStage, Pair, Timeframe } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ProbabilityBar } from "./ProbabilityBar";
+import { MarketBiasBar } from "./MarketBiasBar";
 
 const POLL_INTERVAL_MS = 200;
 
@@ -124,6 +125,7 @@ export function AnalysisProgressScreen({
         <View style={styles.liveProbability}>
           <Text style={styles.liveProbabilityLabel}>ANALYZING... {pct}%</Text>
           <ProbabilityBar buyPct={result.buyPct} sellPct={result.sellPct} noTradePct={result.noTradePct} compact />
+          {result.marketBias !== undefined && <MarketBiasBar direction={result.marketBias.direction} confidence={result.marketBias.confidence} />}
         </View>
       )}
     </View>
