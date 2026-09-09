@@ -20,7 +20,7 @@ function latestForPair(predictions: PredictionUpdate[], pair: Pair, source: Pred
   return predictions.filter((p) => p.pair === pair && p.source === source).sort((a, b) => b.time - a.time)[0];
 }
 
-const ENGINE_LABEL: Record<"smc" | "mean_reversion", string> = { smc: "SMC", mean_reversion: "Range" };
+const ENGINE_LABEL: Record<"smc" | "mean_reversion" | "trend_continuation", string> = { smc: "SMC", mean_reversion: "Range", trend_continuation: "Trend" };
 
 /** The most recent execution attempt for a signal, if any -- a fired signal with no
  * match here simply hasn't been approved/auto-fired yet. Never fabricated. */
@@ -55,7 +55,7 @@ function ExecutionStatus({ trade }: { trade: ExecutedTrade | undefined }) {
  * since each gates on its own screen's focus, only one is ever actually enabled at a
  * time, and usePolledResource makes that a real guarantee.
  */
-function EngineRow({ pair, source, data }: { pair: Pair; source: "smc" | "mean_reversion"; data: SignalsSnapshot }) {
+function EngineRow({ pair, source, data }: { pair: Pair; source: "smc" | "mean_reversion" | "trend_continuation"; data: SignalsSnapshot }) {
   const update = latestForPair(data.predictions, pair, source);
   if (!update) {
     return (
@@ -111,6 +111,7 @@ export const SignalDiagnosticsCard = memo(function SignalDiagnosticsCard() {
           <Text style={styles.pairLabel}>{pair}</Text>
           <EngineRow pair={pair} source="smc" data={data} />
           <EngineRow pair={pair} source="mean_reversion" data={data} />
+          <EngineRow pair={pair} source="trend_continuation" data={data} />
         </View>
       ))}
     </View>

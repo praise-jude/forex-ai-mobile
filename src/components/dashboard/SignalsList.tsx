@@ -35,6 +35,9 @@ export const CONFLUENCE_LABEL: Record<Confluence, string> = {
   boundary_touch: "Boundary touch",
   rsi_extreme: "RSI extreme",
   rejection_candle: "Rejection candle",
+  trend_regime: "Trend regime",
+  higher_timeframe_confluence: "D1/H4 agreement",
+  pullback_reset: "Pullback reset",
 };
 
 const RESULT_TONE_COLOR: Record<"positive" | "negative" | "neutral", string> = {

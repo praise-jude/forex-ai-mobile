@@ -87,13 +87,19 @@ export type Confluence =
   | "range_regime"
   | "boundary_touch"
   | "rsi_extreme"
-  | "rejection_candle";
+  | "rejection_candle"
+  // trendContinuationEngine.ts confluences below -- neither SMC nor Range Engine
+  // produces these.
+  | "trend_regime"
+  | "higher_timeframe_confluence"
+  | "pullback_reset";
 
 export type ConfidenceTier = "strong_buy" | "buy" | "watch";
 export type SignalSource =
   | "smc"
   | "tradingview"
   | "mean_reversion"
+  | "trend_continuation"
   | "manual"
   | "manual_test";
 export type Session = "asia" | "london" | "newyork" | "off-session";
@@ -180,15 +186,19 @@ export type NoTradeReason =
     }
   // SMC found a qualifying setup, but Signer B's independent read had no real lean
   // either way -- a genuine tie/insufficient-data read, not a fabricated agreement.
-  | { code: "signer_b_neutral"; impliedDirection: "long" | "short" }
+  // `confidence` is SMC's own real score.total for this setup -- it already cleared the
+  // tier floor before Signer B held it, so this represents MORE progress than a
+  // below_threshold near-miss, not a hard gate with nothing scored.
+  | { code: "signer_b_neutral"; impliedDirection: "long" | "short"; confidence: number }
   // SMC found a qualifying setup, but Signer B's independent read points the opposite
   // direction -- a genuine conflict between the two independent signers, held rather
-  // than forced.
+  // than forced. `confidence` is the same real score.total as signer_b_neutral above.
   | {
       code: "signer_conflict";
       impliedDirection: "long" | "short";
       signerBDirection: "long" | "short";
       signerBConfidence: number;
+      confidence: number;
     }
   // Everything else passed but the most recently closed 5-minute candle didn't confirm
   // the setup's own direction -- an on-demand REST check at decision time, never a live
@@ -206,7 +216,13 @@ export type NoTradeReason =
       code: "range_below_threshold";
       total: number;
       impliedDirection: "long" | "short";
-    };
+    }
+  // --- trendContinuationEngine.ts reasons below -- neither SMC nor Range Engine
+  // produces these. A pure boolean gate cascade, not a graduated score -- every one of
+  // these three gates must pass for a signal to fire at all. ---
+  | { code: "not_trending"; regime: MarketRegime }
+  | { code: "no_higher_timeframe_confluence"; impliedDirection: "long" | "short" }
+  | { code: "no_pullback_reset"; impliedDirection: "long" | "short" };
 
 export type SignalEvaluation =
   | { status: "signal"; signal: Signal }
@@ -864,6 +880,8 @@ export interface ExecutionConfig {
   sessionEdgeSizingEnabled: boolean;
   edgeMinSamples: number;
   alertWebhookUrl?: string;
+  rangeEngineEnabled: boolean;
+  trendContinuationEnabled: boolean;
 }
 
 export interface ExecutionConfigResponse {

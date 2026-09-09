@@ -100,5 +100,15 @@ function describeReason(reason: NoTradeReason): string {
       const directionWord = reason.impliedDirection === "long" ? "bullish" : "bearish";
       return `A ${directionWord} boundary touch happened, but the combined confidence (${reason.total.toFixed(0)}%) didn't clear the threshold -- not enough RSI extremity, rejection strength, or range cleanliness together.`;
     }
+    case "not_trending":
+      return `Market regime is ${REGIME_LABEL[reason.regime]} -- the trend-continuation engine only looks for setups in a genuine strong uptrend or downtrend.`;
+    case "no_higher_timeframe_confluence": {
+      const directionWord = reason.impliedDirection === "long" ? "bullish" : "bearish";
+      return `The market is in a real ${directionWord} trend, but the daily and 4-hour trend reads don't both agree with it yet -- waiting for the bigger picture to line up.`;
+    }
+    case "no_pullback_reset": {
+      const directionWord = reason.impliedDirection === "long" ? "bullish" : "bearish";
+      return `A real ${directionWord} trend is established and the daily/4-hour timeframes agree, but this candle isn't a genuine pullback-and-resume moment yet -- waiting for momentum to cool off and turn back in the trend's direction.`;
+    }
   }
 }
