@@ -3,6 +3,7 @@ import type { PairAnalysisResult, Signal } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ProbabilityBar } from "./ProbabilityBar";
 import { MarketBiasBar } from "./MarketBiasBar";
+import { SmcSetupProgressBar } from "./SmcSetupProgressBar";
 import { AiConsensusPanel } from "./AiConsensusPanel";
 import { PointRouteCard } from "./PointRouteCard";
 import { SetupQualityBreakdown } from "./SetupQualityBreakdown";
@@ -92,6 +93,7 @@ export function AnalysisResultCard({ result }: { result: PairAnalysisResult }) {
       )}
 
       <ProbabilityBar buyPct={result.buyPct} sellPct={result.sellPct} noTradePct={result.noTradePct} />
+      <SmcSetupProgressBar pct={result.smcSetupProgress.pct} label={result.smcSetupProgress.label} />
       <MarketBiasBar direction={result.marketBias.direction} confidence={result.marketBias.confidence} />
 
       {!winningSignal && (

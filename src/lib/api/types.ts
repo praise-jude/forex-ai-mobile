@@ -296,6 +296,13 @@ export interface PairAnalysisResult {
    * trade signal on its own; "unavailable" only when the same gates blocking buyPct/
    * sellPct entirely also block this. See forex-ai's pairAnalysisJob.ts/types.ts. */
   marketBias: { direction: "long" | "short" | "neutral" | "unavailable"; confidence: number };
+  /** SMC's own genuine progress toward a real setup -- `pct` is a real number wherever
+   * SMC's own reason code has one to give (the real ADX-to-floor ratio for weak_trend_adx,
+   * the real ATR-to-average ratio for low_volatility, or the same real score
+   * below_threshold/signer_b_neutral/signer_conflict already carry), and null (rendered
+   * label-only, no bar) for a reason with no natural continuous ratio -- never a
+   * fabricated percentage. See forex-ai's pairAnalysisJob.ts's smcSetupProgress. */
+  smcSetupProgress: { pct: number | null; label: string };
 }
 
 export interface AnalysisJob {
