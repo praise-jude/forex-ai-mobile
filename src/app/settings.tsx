@@ -15,6 +15,7 @@ import { KillSwitchControl } from "@/components/dashboard/KillSwitchControl";
 import { EmergencyStopControl } from "@/components/dashboard/EmergencyStopControl";
 import { ExecutionPolicyControl } from "@/components/dashboard/ExecutionPolicyControl";
 import { EngineTogglesControl } from "@/components/dashboard/EngineTogglesControl";
+import { MaintenanceControl } from "@/components/dashboard/MaintenanceControl";
 import { ConfirmationModeControl } from "@/components/dashboard/ConfirmationModeControl";
 import { SystemHealthCard } from "@/components/dashboard/SystemHealthCard";
 import { ConfidenceCalibrationCard } from "@/components/dashboard/ConfidenceCalibrationCard";
@@ -196,6 +197,8 @@ function TradingControlsSection() {
       <ExecutionPolicyControl />
       <View style={styles.controlsDivider} />
       <EngineTogglesControl />
+      <View style={styles.controlsDivider} />
+      <MaintenanceControl />
       <View style={styles.controlsDivider} />
       <ConfirmationModeControl />
     </View>
