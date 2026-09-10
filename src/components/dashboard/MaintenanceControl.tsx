@@ -32,6 +32,15 @@ interface MaintenanceReport {
   manualApprovalRequired: number;
   criticalIssues: number;
   availableRepairs: { section: string; label: string; action: RepairAction }[];
+  lastQualifiedSignal: {
+    pair: string;
+    source: string;
+    tier: string;
+    confidence: number;
+    createdAt: number;
+    outcome: "executed" | "rejected" | "not_executed";
+    outcomeDetail: string;
+  } | null;
 }
 interface RepairOutcome {
   label: string;
@@ -204,6 +213,34 @@ export function MaintenanceControl() {
                   ))}
                 </View>
               ))}
+
+              <View style={styles.section}>
+                <Text style={styles.sectionName}>Last Qualified Signal</Text>
+                {report.lastQualifiedSignal ? (
+                  <>
+                    <Text style={styles.itemDetail}>
+                      {report.lastQualifiedSignal.pair} · {report.lastQualifiedSignal.source} · {report.lastQualifiedSignal.tier} ·{" "}
+                      {report.lastQualifiedSignal.confidence}% · {new Date(report.lastQualifiedSignal.createdAt).toLocaleString()}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "700",
+                        color:
+                          report.lastQualifiedSignal.outcome === "executed"
+                            ? DashboardColors.emerald
+                            : report.lastQualifiedSignal.outcome === "rejected"
+                              ? DashboardColors.rose
+                              : DashboardColors.amber,
+                      }}
+                    >
+                      {report.lastQualifiedSignal.outcome.replace("_", " ").toUpperCase()} — {report.lastQualifiedSignal.outcomeDetail}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.muted}>No buy/strong-buy signal in the recent window yet.</Text>
+                )}
+              </View>
 
               <View style={styles.section}>
                 <Text style={styles.sectionName}>Why No Trade -- Last 24 Hours</Text>
