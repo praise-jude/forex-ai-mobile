@@ -25,6 +25,7 @@ import {
 } from "@/lib/api/types";
 import { DashboardColors } from "@/constants/dashboardColors";
 import { ConnectionStatusBadge } from "@/components/dashboard/ConnectionStatusBadge";
+import { SystemAlertBell } from "@/components/dashboard/SystemAlertBell";
 import { MarketSessionsPanel } from "@/components/dashboard/MarketSessionsPanel";
 import { RiskGuardianBanner } from "@/components/dashboard/RiskGuardianBanner";
 import { Watchlist } from "@/components/dashboard/Watchlist";
@@ -379,6 +380,7 @@ export default function DashboardScreen() {
             <Text style={styles.subtitle}>SMC signals · JUDE / OMINI</Text>
           </View>
           <View style={styles.headerRight}>
+            <SystemAlertBell />
             <ConnectionStatusBadge />
             <MarketSessionsPanel />
           </View>

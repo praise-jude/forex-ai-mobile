@@ -482,6 +482,26 @@ export interface EngineModeResponse {
   riskPerTradePct: number;
 }
 
+export type SystemAlertSeverity = "critical" | "warning" | "info";
+
+export interface SystemAlert {
+  id: string;
+  severity: SystemAlertSeverity;
+  title: string;
+  detail: string;
+}
+
+// GET /api/system-alerts -- the aggregated "something worth knowing about is off"
+// feed the dashboard bell renders: auto-trading inactive / LIVE recovery pending,
+// MT5 connection down, a risk halt/cooldown, and recent qualified signals that
+// never executed. Mirrors the web app's SystemAlertBell.
+export interface SystemAlertsResponse {
+  generatedAt: number;
+  count: number;
+  highestSeverity: SystemAlertSeverity | null;
+  alerts: SystemAlert[];
+}
+
 export interface KillSwitchState {
   active: boolean;
   envControlled: boolean;
