@@ -38,6 +38,56 @@ function describeManualTradePlan(pair: Pair, direction: "long" | "short", entry:
   );
 }
 
+type RangePerformanceTone = "warning" | "neutral" | "positive";
+
+// Same thresholds/reasoning as forex-ai's web manualTradeSuggestion.ts's
+// describeRangePerformance -- hand-copied here for the same reason describeManualTradePlan
+// above is. Below 1.0, gross losses genuinely exceed gross profit in this regime; 1.0-1.5
+// is real but thin.
+const LOSING_PROFIT_FACTOR = 1.0;
+const MARGINAL_PROFIT_FACTOR = 1.5;
+
+/**
+ * Fixes a real bug: this banner used to hardcode "occasional losses... have outweighed
+ * the many small wins" for every profitFactor value, because that was true when the
+ * warning was first written but the text was never made to actually depend on the
+ * number -- so a genuinely great profit factor (e.g. 17.77) still rendered the same
+ * "losses outweigh wins" claim, the opposite of what that number means (grossProfit /
+ * grossLoss > 1 means profitable). Never a block either way.
+ */
+function describeRangePerformance(pair: Pair, performance: { count: number; winRate: number; profitFactor: number | null }): { tone: RangePerformanceTone; text: string } {
+  const { count, winRate, profitFactor } = performance;
+  const track = `${winRate.toFixed(0)}% win rate across ${count} trades`;
+  const intro = `${pair} is currently in a range regime. Your own history trading range conditions:`;
+
+  if (profitFactor === null) {
+    return { tone: "neutral", text: `${intro} ${track}, with no losing range-regime trades on record yet to measure a profit factor against.` };
+  }
+  if (profitFactor < LOSING_PROFIT_FACTOR) {
+    return {
+      tone: "warning",
+      text: `${intro} ${track}, but a ${profitFactor.toFixed(2)} profit factor -- occasional losses in this regime have outweighed the many small wins. Not a block, just the real number before you place it.`,
+    };
+  }
+  if (profitFactor < MARGINAL_PROFIT_FACTOR) {
+    return { tone: "neutral", text: `${intro} ${track} and a ${profitFactor.toFixed(2)} profit factor -- roughly breaking even here once losses are weighed against the wins.` };
+  }
+  return {
+    tone: "positive",
+    text: `${intro} ${track} and a ${profitFactor.toFixed(2)} profit factor -- this regime has actually been solidly profitable for you. Still the real number before you place it, not a recommendation.`,
+  };
+}
+
+// Overrides regimeWarningText's own default amber styling below for the neutral/positive
+// tones -- warning keeps that default (an empty override), so this map only needs an
+// entry for the two tones that actually differ from it.
+const RANGE_PERFORMANCE_STYLE: Record<RangePerformanceTone, { color?: string; backgroundColor?: string }> = {
+  warning: {},
+  neutral: { color: DashboardColors.textSecondary, backgroundColor: DashboardColors.surfaceAlt },
+  positive: { color: DashboardColors.emerald, backgroundColor: DashboardColors.emeraldBg },
+};
+const RANGE_PERFORMANCE_ICON: Record<RangePerformanceTone, string> = { warning: "⚠️", neutral: "ℹ️", positive: "✅" };
+
 /**
  * Mirrors forex-ai's web ManualTradeWidget.tsx. Pick a pair and Buy/Sell, the AI fills in
  * a suggested stop-loss/take-profit from that pair's own real recent volatility (the same
@@ -206,14 +256,14 @@ export function ManualTradeCheck() {
         </Text>
       )}
 
-      {regime === "range" && rangePerformance && (
-        <Text style={styles.regimeWarningText}>
-          ⚠️ {pair} is currently in a range regime. Your own history trading range conditions: {rangePerformance.winRate.toFixed(0)}% win
-          rate across {rangePerformance.count} trades, but a{" "}
-          {rangePerformance.profitFactor === null ? "n/a" : rangePerformance.profitFactor.toFixed(2)} profit factor -- occasional losses
-          have outweighed the many small wins. Not a block, just the real number before you place it.
-        </Text>
-      )}
+      {regime === "range" && rangePerformance && (() => {
+        const narrative = describeRangePerformance(pair, rangePerformance);
+        return (
+          <Text style={[styles.regimeWarningText, RANGE_PERFORMANCE_STYLE[narrative.tone]]}>
+            {RANGE_PERFORMANCE_ICON[narrative.tone]} {narrative.text}
+          </Text>
+        );
+      })()}
 
       {planText ? (
         <Text style={styles.planText}>{planText}</Text>
