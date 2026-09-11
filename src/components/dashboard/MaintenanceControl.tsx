@@ -41,6 +41,14 @@ interface MaintenanceReport {
     outcome: "executed" | "rejected" | "not_executed";
     outcomeDetail: string;
   } | null;
+  autoExecutionActivity: {
+    signalsSeen: number;
+    lastSignalSeenAt: number | null;
+    lastSignalSeen: { pair: string; tier: string; source: string } | null;
+    attemptsTotal: number;
+    filledTotal: number;
+    recentAttempts: { pair: string; tier: string; source: string; direction: string; account: string | null; result: string; at: number }[];
+  };
 }
 interface RepairOutcome {
   label: string;
@@ -239,6 +247,25 @@ export function MaintenanceControl() {
                   </>
                 ) : (
                   <Text style={styles.muted}>No buy/strong-buy signal in the recent window yet.</Text>
+                )}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionName}>Auto-Execution Activity (since boot)</Text>
+                <Text style={styles.itemDetail}>
+                  {report.autoExecutionActivity.signalsSeen} signal{report.autoExecutionActivity.signalsSeen === 1 ? "" : "s"} reached the listener ·{" "}
+                  {report.autoExecutionActivity.attemptsTotal} attempt{report.autoExecutionActivity.attemptsTotal === 1 ? "" : "s"} ·{" "}
+                  {report.autoExecutionActivity.filledTotal} filled
+                </Text>
+                {report.autoExecutionActivity.recentAttempts.length === 0 ? (
+                  <Text style={styles.muted}>No execution attempts yet since restart.</Text>
+                ) : (
+                  report.autoExecutionActivity.recentAttempts.slice(0, 5).map((a, i) => (
+                    <Text key={i} style={styles.muted}>
+                      <Text style={a.result === "filled" ? { fontWeight: "700", color: DashboardColors.emerald } : undefined}>{a.result}</Text> —{" "}
+                      {a.pair} {a.tier} ({a.source}) {a.direction} · {new Date(a.at).toLocaleTimeString()}
+                    </Text>
+                  ))
                 )}
               </View>
 
