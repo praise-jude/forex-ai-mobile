@@ -127,6 +127,23 @@ export function MaintenanceControl() {
     await runScan();
   }
 
+  /** Same POST-then-rescan flow as applySafeRepairs, for exactly one item -- added
+   * (operator request, 2026-09-11) so a specific problem can be fixed right where it's
+   * listed, without scrolling up to the bulk button and re-fixing everything else too. */
+  async function applyOneRepair(action: RepairAction, label: string) {
+    setRepairing(true);
+    setRepairResults([]);
+    try {
+      const outcome = await api.post<RepairOutcome>("/api/maintenance", { action });
+      setRepairResults([outcome]);
+    } catch {
+      setRepairResults([{ label, applied: false, success: false, message: "Network error" }]);
+    } finally {
+      setRepairing(false);
+    }
+    await runScan();
+  }
+
   return (
     <View style={styles.container}>
       <Pressable onPress={runScan} style={styles.button}>
@@ -212,11 +229,19 @@ export function MaintenanceControl() {
                       <Text style={[styles.itemIcon, { color: STATUS_STYLE[item.status].color }]}>{STATUS_STYLE[item.status].icon}</Text>
                       <Text style={styles.itemLabel}>{item.label}:</Text>
                       <Text style={styles.itemDetail}>{item.detail}</Text>
-                      {item.status !== "pass" && item.status !== "not_configured" && (
-                        <Text style={[styles.muted, { color: item.repair ? DashboardColors.sky : DashboardColors.textMuted }]}>
-                          {item.repair ? "(safe repair available)" : "(needs your own review)"}
-                        </Text>
-                      )}
+                      {item.status !== "pass" &&
+                        item.status !== "not_configured" &&
+                        (item.repair ? (
+                          <Pressable
+                            onPress={() => item.repair && void applyOneRepair(item.repair, item.label)}
+                            disabled={repairing}
+                            style={[styles.itemRepairButton, repairing && styles.disabled]}
+                          >
+                            <Text style={styles.itemRepairButtonText}>{repairing ? "…" : "Repair"}</Text>
+                          </Pressable>
+                        ) : (
+                          <Text style={[styles.muted, { color: DashboardColors.textMuted }]}>(needs your own review)</Text>
+                        ))}
                     </View>
                   ))}
                 </View>
@@ -325,6 +350,15 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 15, fontWeight: "800", color: DashboardColors.textPrimary },
   repairButton: { alignSelf: "flex-start", borderRadius: 8, backgroundColor: DashboardColors.sky, paddingHorizontal: 12, paddingVertical: 8 },
   repairButtonText: { fontSize: 11, fontWeight: "700", color: "#08111f" },
+  itemRepairButton: {
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: DashboardColors.sky,
+    backgroundColor: "rgba(56,189,248,0.12)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  itemRepairButtonText: { fontSize: 10, fontWeight: "700", color: DashboardColors.sky },
   disabled: { opacity: 0.5 },
   section: { gap: 4, borderRadius: 8, borderWidth: 1, borderColor: DashboardColors.border, padding: 8 },
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
