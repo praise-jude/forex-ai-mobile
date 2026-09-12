@@ -22,6 +22,7 @@ export function RiskGuardianBanner() {
   const [now, setNow] = useState(() => Date.now());
   const [acknowledging, setAcknowledging] = useState(false);
   const [forceResuming, setForceResuming] = useState(false);
+  const [reanchoring, setReanchoring] = useState(false);
 
   async function acknowledge() {
     setAcknowledging(true);
@@ -62,6 +63,36 @@ export function RiskGuardianBanner() {
       [
         { text: "Cancel", style: "cancel" },
         { text: "Force resume", style: "destructive", onPress: () => void forceResume() },
+      ]
+    );
+  }
+
+  // A real, confirmed gap (2026-09-12): a manual deposit/withdrawal changes real equity
+  // by an amount that has nothing to do with trading, but the daily-loss check has no
+  // way to tell that apart from an actual loss -- forceResume above clears the lock but
+  // leaves the stale pre-withdrawal baseline in place, so the very next trade attempt
+  // immediately re-trips the same false alarm. This re-anchors today's starting equity
+  // to whatever it actually is right now -- see riskState.ts's reanchorStartOfDayEquity
+  // doc comment (web).
+  async function reanchorEquity() {
+    setReanchoring(true);
+    try {
+      await api.post("/api/risk-status/reanchor-equity");
+      if (data) setData({ ...data, haltedForToday: false, cooldownUntil: null, requiresAcknowledgement: false });
+    } catch (err) {
+      Alert.alert("Couldn't reset baseline", err instanceof Error ? err.message : "Network error — try again.");
+    } finally {
+      setReanchoring(false);
+    }
+  }
+
+  function confirmReanchorEquity() {
+    Alert.alert(
+      "Reset today's starting balance?",
+      "Only do this if the drop was from a deposit or withdrawal you made yourself, not a trading loss -- this resets today's baseline to your current equity and also clears the lock.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Reset baseline", style: "destructive", onPress: () => void reanchorEquity() },
       ]
     );
   }
@@ -122,9 +153,18 @@ export function RiskGuardianBanner() {
             Daily loss limit ({data.maxDailyLossPct}%) reached on {data.account}. No new trades until the next trading day.
           </Text>
         </View>
-        <Pressable disabled={forceResuming} onPress={confirmForceResume} style={[styles.forceResumeButton, forceResuming && styles.disabled]}>
-          <Text style={styles.forceResumeText}>{forceResuming ? "Resuming…" : "Force resume today"}</Text>
-        </Pressable>
+        <View style={styles.haltedButtonRow}>
+          <Pressable
+            disabled={reanchoring}
+            onPress={confirmReanchorEquity}
+            style={[styles.forceResumeButton, reanchoring && styles.disabled]}
+          >
+            <Text style={styles.forceResumeText}>{reanchoring ? "Resetting…" : "I deposited/withdrew"}</Text>
+          </Pressable>
+          <Pressable disabled={forceResuming} onPress={confirmForceResume} style={[styles.forceResumeButton, forceResuming && styles.disabled]}>
+            <Text style={styles.forceResumeText}>{forceResuming ? "Resuming…" : "Force resume today"}</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -182,11 +222,9 @@ const styles = StyleSheet.create({
   haltedBanner: {
     borderColor: "#9f1239",
     backgroundColor: "rgba(159,18,57,0.25)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     gap: 10,
   },
+  haltedButtonRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   forceResumeButton: {
     borderRadius: 8,
     borderWidth: 1,
