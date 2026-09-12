@@ -13,10 +13,17 @@ import { DashboardColors } from "@/constants/dashboardColors";
  * the broader trend/momentum/currency-strength/session read lean toward right now,
  * regardless of whether SMC's own additional structural gates ever found anything.
  *
- * Never a trade signal on its own -- Signer B alone cannot execute anything (see
- * forex-ai's decisionMatrix.ts) -- and never fabricated: "Unavailable" is shown honestly
- * when the same killzone/insufficient-data gates that block the BUY/SELL bar entirely
- * also block this. Mirrors forex-ai's MarketBiasBar.tsx.
+ * Corrected label (2026-09-12): this used to read "CONTEXT ONLY", which overclaimed how
+ * inert Signer B actually is and contradicted forex-ai's AiConsensusPanel.tsx (no direct
+ * mobile equivalent yet), which has always correctly said Signer B "can block SMC". The
+ * real mechanism (see forex-ai's decisionMatrix.ts, combineSigners): Signer B cannot
+ * ORIGINATE a trade on its own -- it's only ever evaluated after SMC already found a
+ * candidate direction/tier -- but it absolutely CAN veto one, turning a would-be SMC
+ * trade into a hard NO_TRADE the moment its independent read is neutral or points the
+ * opposite direction. That is a real, decision-altering role, not mere context. Never
+ * fabricated either way: "Unavailable" is shown honestly when the same killzone/
+ * insufficient-data gates that block the BUY/SELL bar entirely also block this. Mirrors
+ * forex-ai's MarketBiasBar.tsx.
  */
 export function MarketBiasBar({
   direction,
@@ -41,7 +48,7 @@ export function MarketBiasBar({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerLabel}>MARKET BIAS (SIGNER B — CONTEXT ONLY)</Text>
+        <Text style={styles.headerLabel}>MARKET BIAS (SIGNER B — CAN BLOCK SMC)</Text>
         <Text style={[styles.pct, { color }]}>
           {label} {Math.round(pct)}%
         </Text>
